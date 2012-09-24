@@ -1,0 +1,35 @@
+<ivy-module version="2.0">
+    <info organisation="fr.openstreetmap" module="osm-watch"/>
+
+    <configurations>
+      <conf name="core" />
+    </configurations>
+
+    <dependencies defaultconfmapping="core -> default">
+        <dependency org="log4j" name="log4j" rev="1.2.15">
+          <exclude org="com.sun.jdmk"/>
+           <exclude org="com.sun.jmx"/>
+           <exclude org="javax.jms"/>
+        </dependency>
+        <dependency org="commons-lang" name="commons-lang" rev="2.5"/>
+        <dependency org="commons-io" name="commons-io" rev="2.0"/>
+        <dependency org="commons-collections" name="commons-collections" rev="3.2.1"/>
+        <dependency org="org.json" name="json" rev="20090211"/>
+        
+        <!-- Web frontend -->
+        <dependency org="org.mortbay.jetty" name="servlet-api" rev="3.0.20100224" />
+        <!-- Tests -->
+        <dependency org="junit" name="junit" rev="4.8.1"/>
+
+        <!-- Front -->
+        <dependency org="org.eclipse.jetty" name="jetty-server" rev="8.1.5.v20120716">
+          <exclude org="org.eclipse.jetty.orbit" />
+<!--          <exclude org="javax.servlet" />-->
+        </dependency>
+        <dependency org="org.eclipse.jetty" name="jetty-servlets" rev="8.1.5.v20120716" />
+        <dependency org="org.eclipse.jetty" name="jetty-servlet" rev="8.1.5.v20120716" />
+        <dependency org="org.eclipse.jetty" name="jetty-webapp" rev="8.1.5.v20120716" />
+
+    </dependencies>
+</ivy-module>
+
