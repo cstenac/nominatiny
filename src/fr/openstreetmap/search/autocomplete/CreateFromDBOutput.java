@@ -47,7 +47,7 @@ public class CreateFromDBOutput {
     public CreateFromDBOutput(File outDir) throws IOException {
         builder = new AutocompleteBuilder(new File(outDir, "tmp.unsorted"),
                 new File(outDir, "tmp.sorted"), new File(outDir, "radix"), new File(outDir, "data"));
-        builder.nbValues = 10000;
+        builder.nbValues = 20000;
         this.outDir = outDir;
     }
 
@@ -138,6 +138,11 @@ public class CreateFromDBOutput {
                         tokenize(cityName, tokens);
                         if (cityDisplay.length() > 0) cityDisplay += ", ";
                         cityDisplay += cityName;
+                    }
+                    
+                    // We are scoring the city itself!  Boost !
+                    if (cityName.equals(name)) {
+                    	score += 1000;
                     }
                 }
 
