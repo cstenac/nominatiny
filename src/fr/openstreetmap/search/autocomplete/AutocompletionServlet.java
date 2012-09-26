@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
@@ -20,6 +21,8 @@ import org.apache.commons.lang.StringUtils;
 import org.json.JSONException;
 import org.json.JSONWriter;
 
+import fr.openstreetmap.search.autocomplete.Autocompleter.AutocompleterEntry;
+
 public class AutocompletionServlet extends HttpServlet{
 	private static final long serialVersionUID = 1L;
 	MultipleWordsAutocompleter mwa;
@@ -32,6 +35,14 @@ public class AutocompletionServlet extends HttpServlet{
 			if (line == null) break;
 			stopWords.add(line.replace("\n", ""));
 		}
+	}
+	
+	static class FinalResult {
+	    public FinalResult(AutocompleterEntry ae) {
+	        this.ae = ae;
+	    }
+	    AutocompleterEntry ae;
+	    String decodedData;
 	}
 
 	@Override
@@ -78,8 +89,37 @@ public class AutocompletionServlet extends HttpServlet{
 
 			long afterQuery= System.nanoTime();
 
+			/* First, sort by distance then score */
 			Collections.sort(results);
+			
+			/* If there are some stopped words, but we can find them in the summary, then strongly boost the score.
+			 * This way, stuff that did not really match will get downvoted.
+			 */
+			List<FinalResult> fresults = new ArrayList<AutocompletionServlet.FinalResult>();
+			int nbRes = 0;
+			for (AutocompleterEntry ae : results) {
+			    FinalResult fr = new FinalResult(ae);
+			    fr.decodedData = mwa.completer.getData(ae.offset);
+			    
+			    for (String stop : stopped) {
+			        if (fr.decodedData.toLowerCase().contains(stop)) {
+			            System.out.println("  Boosting " + fr.decodedData);
+			            fr.ae.score += 1000;
+			        }
+			    }
+			    fresults.add(fr);
+			    
+			    // Don't decode too much
+			    if (nbRes++ > 200) break;
+			}
+			Collections.sort(fresults, new Comparator<FinalResult>() {
 
+                @Override
+                public int compare(FinalResult o1, FinalResult o2) {
+                    return o1.ae.compareTo(o2.ae);
+                }
+            });
+			
 			long afterSort= System.nanoTime();
 
 			resp.setContentType("application/json");
@@ -91,14 +131,13 @@ public class AutocompletionServlet extends HttpServlet{
 			try {
 				wr.object().key("matches").array();
 
-				int nbRes = 0;
-				for (Autocompleter.AutocompleterEntry ae : results) {
-					String name = mwa.completer.getData(ae.offset);
-					System.out.println("   RES  " + name + " d=" + ae.distance + " s=" + ae.score + " p=" + ae.correctedPrefix);
+				nbRes = 0;
+				for (FinalResult fr : fresults) {
+					System.out.println("   RES  " + fr.decodedData + " d=" + fr.ae.distance + " s=" + fr.ae.score + " p=" + fr.ae.correctedPrefix);
 					//					System.out.println(" " + ae.offset + " - " + ae.score + " " + ae.distance + " correct prefix=" + ae.correctedPrefix);
 					//        	System.out.println("   " + a.getData(ae.offset));
-					wr.object().key("label").value(name).key("distance").value(ae.distance);
-					wr.key("score").value(ae.score).key("prefix").value(ae.correctedPrefix).endObject();
+					wr.object().key("label").value(fr.decodedData).key("distance").value(fr.ae.distance);
+					wr.key("score").value(fr.ae.score).key("prefix").value(fr.ae.correctedPrefix).endObject();
 					if (nbRes++ > 25) break;
 				}
 				wr.endArray();

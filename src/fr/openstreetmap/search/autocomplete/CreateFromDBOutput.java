@@ -100,11 +100,20 @@ public class CreateFromDBOutput {
                 String c0 = chunks[0].replace(" ", "");
                 if (!StringUtils.isNumeric(c0)) break;
                 long id = Long.parseLong(c0);
-
+//
+//                System.out.println("*****");
+//                System.out.println(line);
+//                System.out.println(chunks[1]);
+//                System.out.println(chunks[2]);
+//                System.out.println(chunks[3]);
+//                System.out.println(chunks[4]);
+//                
+                
                 String name = chunks[1].replaceAll("^\\s+", "").replaceAll("\\s+$", "");
                 String ref = chunks[2].replaceAll("^\\s+", "");
                 String type = chunks[3].replace(" ", "");
                 String[] centroidCoords =  chunks[5].replace(" POINT", "").replace("(", "").replace(")", "").split(" ");
+//                System.out.println("*CHUNK 5 IS " + chunks[5]);
                 double lon = Double.parseDouble(centroidCoords[0]);
                 double lat = Double.parseDouble(centroidCoords[1]);
 
@@ -138,11 +147,11 @@ public class CreateFromDBOutput {
                         tokenize(cityName, tokens);
                         if (cityDisplay.length() > 0) cityDisplay += ", ";
                         cityDisplay += cityName;
-                    }
-                    
-                    // We are scoring the city itself!  Boost !
-                    if (cityName.equals(name)) {
-                    	score += 1000;
+                        
+                        // We are scoring the city itself!  Boost !
+                        if (cityName.equals(name)) {
+                            score += 1000;
+                        }
                     }
                 }
 
@@ -166,6 +175,7 @@ public class CreateFromDBOutput {
                 }
             } catch (Exception e) {
                 logger.error("Failed to parse *********\n" + line, e);
+//                throw e;
             }
         }
         System.out.println("Parsed " + nlines  +(isWays ? " ways" : " nodes"));
