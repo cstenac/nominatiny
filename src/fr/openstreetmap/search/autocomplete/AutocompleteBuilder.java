@@ -13,6 +13,7 @@ import java.io.OutputStream;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.apache.log4j.Level;
@@ -201,8 +202,19 @@ public class AutocompleteBuilder {
             clippedWords.add(key);
             System.out.println("CLIPPED: " + key + " " + encodedValues + "/" + values.size());
         }
+        values = values.subList(0, encodedValues);
+        Collections.sort(values, new Comparator<EntryVal>() {
+            @Override
+            public int compare(EntryVal o1, EntryVal o2) {
+                return (int)(o1.value - o2.value);
+            }
+            
+        });
+        
+        System.out.println("EMIT " + encodedValues + " values");
         bse.writeVInt(encodedValues);
         for (int i = 0; i < encodedValues; i++) {
+            System.out.println(" EMIT " + values.get(i).value +"  " + values.get(i).score);
             bse.writeVInt(values.get(i).value);
             bse.writeVInt(values.get(i).score);
         }

@@ -173,6 +173,7 @@ public class CreateFromDBOutput {
                 if (nlines % 5000 == 0) {
                     System.out.println("Parsed " +  nlines + (isWays ? " ways" : " nodes") + ", id=" + id + " name=" + name);
                 }
+                if (nlines > 50000) break;
             } catch (Exception e) {
                 logger.error("Failed to parse *********\n" + line, e);
 //                throw e;

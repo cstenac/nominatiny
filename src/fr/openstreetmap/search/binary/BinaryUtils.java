@@ -1,5 +1,9 @@
 package fr.openstreetmap.search.binary;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+
+import org.apache.commons.lang.mutable.MutableInt;
 
 
 public class BinaryUtils {
@@ -211,5 +215,12 @@ public class BinaryUtils {
         }
         throw new Error("Malformed Vint");
     }
-
+    
+    public static String readUTF8LenAndString(byte[] buffer, int pos, MutableInt newPos) throws IOException {
+        VInt v = new VInt();
+        readVInt(buffer, pos, v);
+        byte[] data = Arrays.copyOfRange(buffer, pos + v.codeSize, (int)(pos + v.codeSize + v.value));
+        newPos.setValue(pos + v.codeSize + v.value);
+        return new String(data, "utf8");
+    }
 }

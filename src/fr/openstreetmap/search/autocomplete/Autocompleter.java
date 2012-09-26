@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import fr.openstreetmap.search.binary.BinaryUtils;
+import fr.openstreetmap.search.binary.LongList;
 import fr.openstreetmap.search.tree.RadixTree;
 import fr.openstreetmap.search.tree.RadixTreeFuzzyLookup;
 
@@ -52,6 +53,53 @@ public class Autocompleter {
 			if (score < o.score) return 1;
 			return 0;
 		}
+	}
+	
+	public void getOffsets(String query, int maxDistance, DebugInfo di, LongList offsets, LongList scores, LongList distances,
+	                       List<String> correctedPrefixes) {
+	    long t0 = 0, t1 = 0;
+        RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
+        
+        if (di != null) t0 = System.nanoTime();
+        rtfl.match(query, maxDistance);
+        if (di != null) {
+            t1 = System.nanoTime();
+            di.radixTreeMatchTime = (t1 - t0)/1000;
+            di.radixTreeMatches = rtfl.getMatches().size();
+        }
+        
+//      System.out.println("QUERY "  + query + " has " + rtfl.matches.size() +  "approximate matches");
+        
+        BinaryUtils.VInt vint = new BinaryUtils.VInt();
+        
+        for (int i = 0; i < rtfl.getMatches().size(); i++) {
+            RadixTreeFuzzyLookup.ApproximateMatch match = rtfl.getMatches().get(i);
+//          System.out.println("Value " + match.byteArrayValue.length);
+            int pos = 0;
+            BinaryUtils.readVInt(match.byteArrayValue, 0, vint);
+//          System.out.println("Found " + vint.value + " offsets");
+            pos = vint.codeSize;
+            int nbVals = (int)vint.value;
+//          System.out.println("*** Approx match:" + rtfl.matches.get(i).key + " d=" + rtfl.matches.get(i).distance + " nvals=" + nbVals);
+
+            for (int j = 0; j < nbVals; j++) {
+                BinaryUtils.readVInt(match.byteArrayValue, pos, vint);
+                pos += vint.codeSize;
+                long v = vint.value;
+                BinaryUtils.readVInt(match.byteArrayValue, pos, vint);
+                pos += vint.codeSize;
+                long s = vint.value;
+
+                offsets.add(v);
+                distances.add(match.distance);
+                scores.add(s);
+                correctedPrefixes.add(match.key);
+            }
+        }
+        if (di != null) {
+            di.listsDecodingTime = (System.nanoTime() - t1)/1000;
+            di.decodedMatches = offsets.size();
+        }
 	}
 
 	public List<AutocompleterEntry> getOffsets(String query, int maxDistance, DebugInfo di) {
