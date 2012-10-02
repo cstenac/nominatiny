@@ -136,6 +136,11 @@ public class CreateFromDBOutput {
                         lit.remove();
                     }
                 }
+                
+                /* All the tokens until now are scored like the original score */
+                int tokensWithBaseScore = tokens.size();
+                
+                long cityScore = 0; // The display form of the city is less important.
 
                 String[] cities = chunks[4].replaceAll("\\s+", "").replace("{", "").replace("}", "").split(",");
                 String cityDisplay = "";
@@ -158,6 +163,9 @@ public class CreateFromDBOutput {
                 // Beware, don't use type as a token. It's useless, it will be clipped anyway !
                 // tokens.add(type);
 
+                long[] scores = new long[tokens.size()];
+                for (int i = 0; i < tokensWithBaseScore; i++) scores[i] = score;
+                for (int i = tokensWithBaseScore; i < tokens.size(); i++) scores[i] = cityScore;
 
                 /* Compute the display value */
                 JSONObject obj = new JSONObject();
@@ -168,14 +176,17 @@ public class CreateFromDBOutput {
                 obj.put("lon", lon);
                 String value = obj.toString();
 
-                builder.addMultiEntry(tokens.toArray(new String[0]), value, score);
+                builder.addMultiEntry(tokens.toArray(new String[0]), value, scores);
+                // Good test: rue édouard de <-- will put "avenue édouard" in "rueil" first.
+                
+                // TODO: Boost correct-length matches ?
 
                 if (nlines % 5000 == 0) {
                     System.out.println("Parsed " +  nlines + (isWays ? " ways" : " nodes") + ", id=" + id + " name=" + name);
                 }
 //                if (nlines > 50000) break;
             } catch (Exception e) {
-                logger.error("Failed to parse *********\n" + line, e);
+                logger.error("Failed to parse *********");//\n" + line, e);
 //                throw e;
             }
         }

@@ -65,6 +65,20 @@ public class AutocompleteBuilder {
             }
         }
     }
+    
+    public void addMultiEntry(String[] entries, String data, long[] scores) throws IOException {
+        byte[] utf8Data = data.getBytes("utf8");
+
+        long offset = bse.getWritten();
+        bse.writeVInt(utf8Data.length);
+        bse.writeBytes(utf8Data);
+
+        for (int eidx = 0; eidx < entries.length; eidx++) {
+            for (int i = minEntrySize; i <= entries[eidx].length(); i++) {
+                temporaryFileWriter.write(entries[eidx].substring(0, i)+ "\t" + offset + "\t" + scores[eidx] + "\n");
+            }
+        }
+    }
 
     public void addEntry(String entry, String data, long score) throws IOException {
         byte[] utf8Data = data.getBytes("utf8");
