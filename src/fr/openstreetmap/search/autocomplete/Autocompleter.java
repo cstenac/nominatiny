@@ -105,7 +105,7 @@ public class Autocompleter {
 	public List<AutocompleterEntry> getOffsets(String query, int maxDistance, DebugInfo di) {
 		long t0 = 0, t1 = 0;
 		
-		List<AutocompleterEntry> ret = new ArrayList<Autocompleter.AutocompleterEntry>();
+		List<AutocompleterEntry> ret = new ArrayList<Autocompleter.AutocompleterEntry>(2000);
 		RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
 		
 		if (di != null) t0 = System.nanoTime();

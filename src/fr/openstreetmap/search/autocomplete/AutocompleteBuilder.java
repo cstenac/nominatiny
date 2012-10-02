@@ -211,10 +211,10 @@ public class AutocompleteBuilder {
             
         });
         
-        System.out.println("EMIT " + encodedValues + " values");
+//        System.out.println("EMIT " + encodedValues + " values");
         bse.writeVInt(encodedValues);
         for (int i = 0; i < encodedValues; i++) {
-            System.out.println(" EMIT " + values.get(i).value +"  " + values.get(i).score);
+//            System.out.println(" EMIT " + values.get(i).value +"  " + values.get(i).score);
             bse.writeVInt(values.get(i).value);
             bse.writeVInt(values.get(i).score);
         }

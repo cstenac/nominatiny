@@ -37,17 +37,17 @@ public class CreateFromDBOutput {
     
     public static Set<String> definitelyStopWords = new HashSet<String>();
     static {
-        definitelyStopWords.add("rue");
-        definitelyStopWords.add("avenue");
-        definitelyStopWords.add("route");
-        definitelyStopWords.add("boulevard");
-        definitelyStopWords.add("chemin");
+//        definitelyStopWords.add("rue");
+//        definitelyStopWords.add("avenue");
+//        definitelyStopWords.add("route");
+//        definitelyStopWords.add("boulevard");
+//        definitelyStopWords.add("chemin");
     }
 
     public CreateFromDBOutput(File outDir) throws IOException {
         builder = new AutocompleteBuilder(new File(outDir, "tmp.unsorted"),
                 new File(outDir, "tmp.sorted"), new File(outDir, "radix"), new File(outDir, "data"));
-        builder.nbValues = 20000;
+        builder.nbValues = 600000;
         this.outDir = outDir;
     }
 
@@ -173,7 +173,7 @@ public class CreateFromDBOutput {
                 if (nlines % 5000 == 0) {
                     System.out.println("Parsed " +  nlines + (isWays ? " ways" : " nodes") + ", id=" + id + " name=" + name);
                 }
-                if (nlines > 50000) break;
+//                if (nlines > 50000) break;
             } catch (Exception e) {
                 logger.error("Failed to parse *********\n" + line, e);
 //                throw e;

@@ -1,15 +1,14 @@
 package fr.openstreetmap.search.autocomplete;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.ArrayUtils;
+
 import fr.openstreetmap.search.autocomplete.Autocompleter.AutocompleterEntry;
-import fr.openstreetmap.search.binary.LongList;
 
 /** This class is not thread safe */
 public class MultipleWordsAutocompleter {
@@ -21,283 +20,99 @@ public class MultipleWordsAutocompleter {
         List<Autocompleter.DebugInfo> tokensDebugInfo = new ArrayList<Autocompleter.DebugInfo>();
         long intersectionTime;
     }
-    public List<Autocompleter.AutocompleterEntry> autocomplete(String[] tokens, int maxDistance, DebugInfo di) {
+
+    public static class MultiWordAutocompleterEntry implements Comparable<MultiWordAutocompleterEntry>{
+        public long offset;
+        public long score;
+        public long distance;
+        public String[] correctedTokens;
+        
+        @Override
+        public int compareTo(MultiWordAutocompleterEntry o) {
+            if (distance < o.distance) return -1;
+            if (distance > o.distance) return 1;
+            if (score > o.score) return -1;
+            if (score < o.score) return 1;
+            return 0;
+        }
+    }
+    
+    
+    
+    public List<MultiWordAutocompleterEntry> autocomplete(String[] tokens, int maxDistance, DebugInfo di) {
         List<String> list = new ArrayList<String>();
         for (String t : tokens) list.add(t);
         return autocomplete(list, maxDistance, di);
     }
 
-    public static class MultiWordAutocompleterEntry {
-        public long offset;
-        public long score;
-        public long distance;
-        public String[] correctedTokens;
-    }
+    public List<MultiWordAutocompleterEntry> autocomplete(List<String> tokens, int defaultMaxDistance, DebugInfo di) {
 
-    static class InvertedList {
-        int originalOffsetInInvertedListsList;
-        LongList offsets = new LongList(1000);
-        LongList scores = new LongList(1000);
-        LongList distances = new LongList(1000);
-        List<String> correcteds = new ArrayList<String>(1000);
-        
-        Map<Long, Integer> offsetsMap = new HashMap<Long, Integer>();
+        List<MultiWordAutocompleterEntry> out = new ArrayList<MultiWordAutocompleterEntry>();
+        if (tokens.size() == 0) return out;
 
-        int curIndex = -1;
+        /* We will always decode all lists, so do it all at once. The advantage is that we can then sort the lists,
+         * and start by the smallest one, to prune the insertions in the hashmaps
+         */
+        List<List<AutocompleterEntry>> lists = new ArrayList<List<AutocompleterEntry>>();
 
-        void initIteration() {
+        for (int i = 0; i < tokens.size(); i++) {
+            Autocompleter.DebugInfo tokenDI = null;
+            if (di != null) tokenDI = new Autocompleter.DebugInfo();
 
+            lists.add(completer.getOffsets(tokens.get(i), defaultMaxDistance, tokenDI));
+
+            if (di != null) di.tokensDebugInfo.add(tokenDI);
         }
-        
-        void map() {
-            for (int i = 0; i < offsets.size() ;i++) {
-                offsetsMap.put(offsets.get(i), i);
+
+        Collections.sort(lists, new Comparator<List<AutocompleterEntry>>() {
+            @Override
+            public int compare(List<AutocompleterEntry> arg0, List<AutocompleterEntry> arg1) {
+                return arg0.size() - arg1.size();
             }
-        }
+        });
 
-        int curIndex() {
-            return curIndex;
-        }
+        Map<Long, MultiWordAutocompleterEntry> prevMap = null;
 
-        long curValue() {
-            if (curIndex >= offsets.size()) return -1;
-            return offsets.get(curIndex);
-        }
-        long curScoreUnsafe() {
-            return scores.get(curIndex);
-        }
-        long curDistanceUnsafe() {
-            return distances.get(curIndex);
-        }
-        String curCorrectedUnsafe() {
-            return correcteds.get(curIndex);
-        }
+        for (int i = 0; i < tokens.size(); i++) {
+            Map<Long, MultiWordAutocompleterEntry> mapAfter = new HashMap<Long, MultipleWordsAutocompleter.MultiWordAutocompleterEntry>(2000);
+            if (prevMap == null) {// First token, always take everything
+                //                System.out.println("FIRST TOKEN, prev list" + lists.get(i).size());
+                for (AutocompleterEntry ae : lists.get(i)) {
+                    MultiWordAutocompleterEntry candidate = new MultiWordAutocompleterEntry();
+                    candidate.offset = ae.offset; candidate.score = ae.score; candidate.distance = ae.distance;
+                    candidate.correctedTokens = new String[]{ae.correctedPrefix};
+                    mapAfter.put(ae.offset, candidate);
+                }
+            } else {
+                //                System.out.println("SECOND TOKEN, prev list" + lists.get(i).size());
 
-        void gotoNext() {
-            curIndex++;
-        }
+                for (AutocompleterEntry ae : lists.get(i)) {
+                    MultiWordAutocompleterEntry prev =  prevMap.get(ae.offset);
+                    if (prev != null) {
+                        prev.score = Math.min(prev.score, ae.score);
+                        prev.distance = Math.min(prev.distance, ae.distance);
+                        prev.correctedTokens = (String[])ArrayUtils.add(prev.correctedTokens, ae.correctedPrefix);
+                        mapAfter.put(ae.offset, prev);
+                    }
+                }
+                //                System.out.println("AFTER SECOND TOKEN,  map is " );
 
-        void seekTo(long seekTo) {
-            while (curIndex < offsets.size() && offsets.get(curIndex) < seekTo) ++curIndex; 
+            }
+            prevMap = mapAfter;
         }
-
-        void append(long offset, long score, long distance, String corrected) {
-            offsets.add(offset);
-            scores.add(score);
-            distances.add(distance);
-            correcteds.add(corrected);
-        }
+        out.addAll(prevMap.values());
+        return out;
     }
     
-    public List<MultiWordAutocompleterEntry> autocompleteNew2(List<String> tokens, int defaultMaxDistance, DebugInfo di) {
-        List<MultiWordAutocompleterEntry> out = new ArrayList<MultiWordAutocompleterEntry>();
-        if (tokens.size() == 0) return out;
-
-        List<InvertedList> lists = new ArrayList<InvertedList>();
-
-        for (int i = 0; i < tokens.size(); i++) {
-            InvertedList ilist = new InvertedList();
-            ilist.originalOffsetInInvertedListsList = i;
-            Autocompleter.DebugInfo tokenDI = di  != null ? new Autocompleter.DebugInfo() : null;
-            completer.getOffsets(tokens.get(i), defaultMaxDistance, tokenDI, ilist.offsets, ilist.scores, ilist.distances, ilist.correcteds);
-//            System.out.println("After token " + i + ", have " + ilist.offsets.size() + " matches");
-            lists.add(ilist);
-        }
-
-//        if (tokens.size() == 1) {
-//            return lists.get(0);
-//        }
-
-        Collections.sort(lists, new Comparator<InvertedList>() {
-            @Override
-            public int compare(InvertedList arg0, InvertedList arg1) {
-                return arg0.offsets.size() - arg1.offsets.size();
-            }
-        });
-        
-        lists.get(0).map();
-        
-        for (int i = 1; i < lists.size(); i++) {
-            Map<Long, Integer> prevMap = lists.get(i-1).offsetsMap;
-        }
-        
-        /* Init the seeked lists */
-        for (int i =  1; i < lists.size(); i++) {
-            lists.get(i).map();
-        }
-
-        int[] offsetsInOtherLists = new int[lists.size()];
-        
-        InvertedList l0 = lists.get(0);
-        int offsetsInList0 = l0.offsets.size();
-
-        for (int i = 0; i < offsetsInList0; i++) {
-            long candidateOffset = l0.offsets.get(i);
-            boolean ok = true;
-            for (int j= 1; j < lists.size(); j++) {
-                Integer foundInList = lists.get(j).offsetsMap.get(candidateOffset);
-                if (foundInList == null) {
-                    ok = false;
-                    break;
-                } else {
-                    offsetsInOtherLists[j] = foundInList;
-                }
-            }
-            offsetsInOtherLists[0] = i;
-
-            if (ok) {
-                // We have a match
-                MultiWordAutocompleterEntry mwae = new MultiWordAutocompleterEntry();
-                mwae.offset = candidateOffset;
-                mwae.correctedTokens = new String[tokens.size()];
-                mwae.score = Long.MAX_VALUE;
-                mwae.distance = 0;
-                for (int k =  0; k < lists.size(); k++) {
-                    mwae.score = Math.min(lists.get(k).scores.get(offsetsInOtherLists[k]), mwae.score);
-                    mwae.distance = Math.min(lists.get(k).distances.get(offsetsInOtherLists[k]), mwae.distance);
-                    mwae.correctedTokens[lists.get(k).originalOffsetInInvertedListsList] = lists.get(k).correcteds.get(offsetsInOtherLists[k]);
-                }
-                out.add(mwae);
-            }
-        }
-        
-        
-//        System.out.println("Will NEXT on a list with " + lists.get(0).offsets.size() );
-//
-//
-//        while (true) {
-//            lists.get(0).gotoNext();
-//            long firstListValue = lists.get(0).curValue();
-//            System.out.println("goto next returned " + firstListValue);
-//
-//            if (firstListValue == -1) break;
-//
-//            boolean broken = false;
-//            for (int i =  1; i < lists.size(); i++) {
-//                lists.get(i).seekTo(firstListValue);
-//                if (lists.get(i).curValue() != firstListValue) { broken = true; break; }
-//            }
-//
-//            if (!broken) {
-//                /* We have a match */
-//                MultiWordAutocompleterEntry mwae = new MultiWordAutocompleterEntry();
-//                mwae.offset = firstListValue;
-//                mwae.correctedTokens = new String[tokens.size()];
-//                mwae.score = Long.MAX_VALUE;
-//                mwae.distance = 0;
-//                for (int i =  0; i < lists.size(); i++) {
-//                    mwae.score = Math.min(lists.get(i).curScoreUnsafe(), mwae.score);
-//                    mwae.distance = Math.min(lists.get(i).curDistanceUnsafe(), mwae.distance);
-//                    mwae.correctedTokens[lists.get(i).originalOffsetInInvertedListsList] = lists.get(i).curCorrectedUnsafe();
-//                }
-//                out.add(mwae);
-//            }
-//        }
-        return out;
+    
+    /* Previous version that did not correctly compute the corrected tokens, and that did not sort the inverted lists */
+    public List<Autocompleter.AutocompleterEntry> autocompleteOld(String[] tokens, int maxDistance, DebugInfo di) {
+        List<String> list = new ArrayList<String>();
+        for (String t : tokens) list.add(t);
+        return autocompleteOld(list, maxDistance, di);
     }
 
-    public List<MultiWordAutocompleterEntry> autocompleteNew(List<String> tokens, int defaultMaxDistance, DebugInfo di) {
-        List<MultiWordAutocompleterEntry> out = new ArrayList<MultiWordAutocompleterEntry>();
-        if (tokens.size() == 0) return out;
-
-        List<InvertedList> lists = new ArrayList<InvertedList>();
-
-        for (int i = 0; i < tokens.size(); i++) {
-            InvertedList ilist = new InvertedList();
-            ilist.originalOffsetInInvertedListsList = i;
-            Autocompleter.DebugInfo tokenDI = di  != null ? new Autocompleter.DebugInfo() : null;
-            completer.getOffsets(tokens.get(i), defaultMaxDistance, tokenDI, ilist.offsets, ilist.scores, ilist.distances, ilist.correcteds);
-//            System.out.println("After token " + i + ", have " + ilist.offsets.size() + " matches");
-            lists.add(ilist);
-        }
-
-//        if (tokens.size() == 1) {
-//            return lists.get(0);
-//        }
-
-        Collections.sort(lists, new Comparator<InvertedList>() {
-            @Override
-            public int compare(InvertedList arg0, InvertedList arg1) {
-                return arg0.offsets.size() - arg1.offsets.size();
-            }
-        });
-        
-        /* Init the seeked lists */
-        for (int i =  1; i < lists.size(); i++) {
-            lists.get(i).map();
-        }
-
-        int[] offsetsInOtherLists = new int[lists.size()];
-        
-        InvertedList l0 = lists.get(0);
-        int offsetsInList0 = l0.offsets.size();
-
-        for (int i = 0; i < offsetsInList0; i++) {
-            long candidateOffset = l0.offsets.get(i);
-            boolean ok = true;
-            for (int j= 1; j < lists.size(); j++) {
-                Integer foundInList = lists.get(j).offsetsMap.get(candidateOffset);
-                if (foundInList == null) {
-                    ok = false;
-                    break;
-                } else {
-                    offsetsInOtherLists[j] = foundInList;
-                }
-            }
-            offsetsInOtherLists[0] = i;
-
-            if (ok) {
-                // We have a match
-                MultiWordAutocompleterEntry mwae = new MultiWordAutocompleterEntry();
-                mwae.offset = candidateOffset;
-                mwae.correctedTokens = new String[tokens.size()];
-                mwae.score = Long.MAX_VALUE;
-                mwae.distance = 0;
-                for (int k =  0; k < lists.size(); k++) {
-                    mwae.score = Math.min(lists.get(k).scores.get(offsetsInOtherLists[k]), mwae.score);
-                    mwae.distance = Math.min(lists.get(k).distances.get(offsetsInOtherLists[k]), mwae.distance);
-                    mwae.correctedTokens[lists.get(k).originalOffsetInInvertedListsList] = lists.get(k).correcteds.get(offsetsInOtherLists[k]);
-                }
-                out.add(mwae);
-            }
-        }
-        
-        
-//        System.out.println("Will NEXT on a list with " + lists.get(0).offsets.size() );
-//
-//
-//        while (true) {
-//            lists.get(0).gotoNext();
-//            long firstListValue = lists.get(0).curValue();
-//            System.out.println("goto next returned " + firstListValue);
-//
-//            if (firstListValue == -1) break;
-//
-//            boolean broken = false;
-//            for (int i =  1; i < lists.size(); i++) {
-//                lists.get(i).seekTo(firstListValue);
-//                if (lists.get(i).curValue() != firstListValue) { broken = true; break; }
-//            }
-//
-//            if (!broken) {
-//                /* We have a match */
-//                MultiWordAutocompleterEntry mwae = new MultiWordAutocompleterEntry();
-//                mwae.offset = firstListValue;
-//                mwae.correctedTokens = new String[tokens.size()];
-//                mwae.score = Long.MAX_VALUE;
-//                mwae.distance = 0;
-//                for (int i =  0; i < lists.size(); i++) {
-//                    mwae.score = Math.min(lists.get(i).curScoreUnsafe(), mwae.score);
-//                    mwae.distance = Math.min(lists.get(i).curDistanceUnsafe(), mwae.distance);
-//                    mwae.correctedTokens[lists.get(i).originalOffsetInInvertedListsList] = lists.get(i).curCorrectedUnsafe();
-//                }
-//                out.add(mwae);
-//            }
-//        }
-        return out;
-    }
-
-    public List<Autocompleter.AutocompleterEntry> autocomplete(List<String> tokens, int defaultMaxDistance, DebugInfo di) {
+    public List<Autocompleter.AutocompleterEntry> autocompleteOld(List<String> tokens, int defaultMaxDistance, DebugInfo di) {
         long t0 = 0;
 
         Autocompleter.DebugInfo token0DI = null;
@@ -310,7 +125,7 @@ public class MultipleWordsAutocompleter {
         for (Autocompleter.AutocompleterEntry e :  completer.getOffsets(tokens.get(0), defaultMaxDistance, token0DI)) {
             map.put(e.offset, e);
         }
-//        System.out.println("After token 0, have " + map.size() + " matches");
+        //        System.out.println("After token 0, have " + map.size() + " matches");
         if (di != null) {
             di.tokensDebugInfo.add(token0DI);
         }
@@ -328,8 +143,8 @@ public class MultipleWordsAutocompleter {
                 di.tokensDebugInfo.add(tokenDI);
                 t0 = System.nanoTime();
             }
-//            System.out.println("TOKEN HAS " + thisList.size());
-            
+            //            System.out.println("TOKEN HAS " + thisList.size());
+
             for (Autocompleter.AutocompleterEntry e : thisList) {
                 Autocompleter.AutocompleterEntry prevE = prevMap.get(e.offset);
                 if (prevE == null) continue;
@@ -340,7 +155,7 @@ public class MultipleWordsAutocompleter {
             if (di != null) {
                 di.intersectionTime += (System.nanoTime() - t0)/1000;
             }
-//            System.out.println("After token " + i + ", have " + map.size() + " matches");
+            //            System.out.println("After token " + i + ", have " + map.size() + " matches");
 
         }
 
@@ -350,5 +165,4 @@ public class MultipleWordsAutocompleter {
         }
         return ret;
     }
-
 }

@@ -16,7 +16,13 @@ import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWord
 
 public class MultiAutocompleterTest {
     public static void main(String[] args) throws Exception {
-        System.out.println("go");
+        
+        int nbPreHeat = 100;
+        int nbLoops = 200;
+
+//        System.in.read();
+
+//        System.out.println("go");
         FileChannel radixChannel = new RandomAccessFile(new File("/data/homes/stenac/public_html/osm/data/radix"), "r").getChannel();
         MappedByteBuffer radixDirectBuffer = radixChannel.map(MapMode.READ_ONLY, 0, radixChannel.size());
         
@@ -35,44 +41,88 @@ public class MultiAutocompleterTest {
         mwa.completer = a;
         
         List<String> tokens = new ArrayList<String>();
+        tokens.add("ana");
         
         tokens.add("boulogne");
 //        tokens.add("anna");
-        tokens.add("ana");
-
-        for (int i = 0; i < 200; i++) {
+        
+        for (int i = 0; i < nbPreHeat; i++) {
         	mwa.autocomplete(tokens, 1, null);
         }
+//        System.out.println("Ready");
+        
+//        System.in.read();
+        
+//        System.out.println("GO 2");
 //        
         long before = System.currentTimeMillis();
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < nbLoops; i++) {
+//            if (i % 100 == 0) System.out.println("  Done " + i);
         	mwa.autocomplete(tokens, 1, null);
         }
         long after = System.currentTimeMillis();
         
-        List<Autocompleter.AutocompleterEntry> aelist = mwa.autocomplete(tokens, 1, null);
+        System.out.println("TIME-OLD IS " + (after-before));
+
+        
+        List<Autocompleter.AutocompleterEntry> aelist = mwa.autocompleteOld(tokens, 1, null);
 //        System.out.println("OU1: " + aelist.size());
 //        Collections.sort(aelist);
 //        
-        for (Autocompleter.AutocompleterEntry ae : aelist) {
-        	System.out.println(" " + ae.offset + " - s=" + ae.score + " d=" + ae.distance + " correct prefix=" + ae.correctedPrefix);
-        	System.out.println("   " + a.getData(ae.offset));
-        }
-//        
-        System.out.println("TIME-OLD IS " + (after-before));
-        
-        for (int i = 0; i < 200; i++) {
-            mwa.autocompleteNew(tokens, 1, null);
-        }
-//        
-        before = System.currentTimeMillis();
-        for (int i = 0; i < 500; i++) {
-            mwa.autocompleteNew(tokens, 1, null);
-        }
-        after = System.currentTimeMillis();
+//        for (Autocompleter.AutocompleterEntry ae : aelist) {
+//        	System.out.println(" " + ae.offset + " - s=" + ae.score + " d=" + ae.distance + " correct prefix=" + ae.correctedPrefix);
+//        	System.out.println("   " + a.getData(ae.offset));
+//        }
 
         
-        List<MultiWordAutocompleterEntry> mwael =  mwa.autocompleteNew(tokens,  1, null);
+        
+        
+        
+//        for (int i = 0; i < 200; i++) {
+//            mwa.autocompleteNew(tokens, 1, null);
+//        }
+//        before = System.currentTimeMillis();
+//        for (int i = 0; i < 200; i++) {
+//            mwa.autocompleteNew(tokens, 1, null);
+//        }
+//        after = System.currentTimeMillis();
+//        System.out.println("TIME-NEW IS " + (after-before));
+ 
+        
+        for (int i = 0; i < nbPreHeat; i++) {
+            mwa.autocomplete(tokens, 1, null);
+        }
+        before = System.currentTimeMillis();
+        for (int i = 0; i < nbLoops; i++) {
+            mwa.autocomplete(tokens, 1, null);
+        }
+        after = System.currentTimeMillis();
+        System.out.println("TIME-NEW2 IS " + (after-before));
+        
+//        for (int i = 0; i < nbPreHeat; i++) {
+//            mwa.autocompleteNew3(tokens, 1, null);
+//        }
+//        before = System.currentTimeMillis();
+//        for (int i = 0; i < nbLoops; i++) {
+//            mwa.autocompleteNew3(tokens, 1, null);
+//        }
+//        after = System.currentTimeMillis();
+//        System.out.println("TIME-NEW3 IS " + (after-before));
+//
+//        
+//        for (int i = 0; i < nbPreHeat; i++) {
+//            mwa.autocompleteNew4(tokens, 1, null);
+//        }
+//        before = System.currentTimeMillis();
+//        for (int i = 0; i < nbLoops; i++) {
+//            mwa.autocompleteNew4(tokens, 1, null);
+//        }
+//        after = System.currentTimeMillis();
+//        System.out.println("TIME-NEW4 IS " + (after-before));
+
+        
+        List<MultiWordAutocompleterEntry> mwael =  mwa.autocomplete(tokens,  1, null);
+        System.out.println("FOUND " + mwael + " entries");
 //        Collections.sort(mwae);
 //      
       for (MultiWordAutocompleterEntry mwae : mwael) {
@@ -80,8 +130,6 @@ public class MultiAutocompleterTest {
           System.out.println("   " + a.getData(mwae.offset));
       }
       
-      System.out.println("TIME-NEW IS " + (after-before));
-        
 //        RadixTree rt = new RadixTree();
 //        rt.buffer = radixBuffer;
 //        rt.totalSize = radixBuffer.size();

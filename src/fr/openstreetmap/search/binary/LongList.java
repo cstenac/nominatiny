@@ -85,12 +85,11 @@ public class LongList implements Iterable<Long>{
         return previous;
     }
 
-    public boolean add(long o) {
-        if (size >= capacity()) {
+    public void add(long o) {
+        if (size >= data.length) {
             grow(size + 1);
         }
         data[size++] = o;
-        return true;
     }
 
     /** Geometric grow */
