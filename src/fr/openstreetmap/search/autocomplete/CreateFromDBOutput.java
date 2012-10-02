@@ -109,10 +109,10 @@ public class CreateFromDBOutput {
 //                System.out.println(chunks[4]);
 //                
                 
-                String name = chunks[1].replaceAll("^\\s+", "").replaceAll("\\s+$", "");
+                String name = chunks[1].replaceAll("^\\s+|\\s+$", "");
                 String ref = chunks[2].replaceAll("^\\s+", "");
-                String type = chunks[3].replace(" ", "");
-                String[] centroidCoords =  chunks[5].replace(" POINT", "").replace("(", "").replace(")", "").split(" ");
+                String type = StringUtils.replace(chunks[3], " " ,"");
+                String[] centroidCoords =  chunks[5].replaceAll(" POINT|\\(|\\)", "").split(" ");
 //                System.out.println("*CHUNK 5 IS " + chunks[5]);
                 double lon = Double.parseDouble(centroidCoords[0]);
                 double lat = Double.parseDouble(centroidCoords[1]);
@@ -142,13 +142,15 @@ public class CreateFromDBOutput {
                 
                 long cityScore = 0; // The display form of the city is less important.
 
-                String[] cities = chunks[4].replaceAll("\\s+", "").replace("{", "").replace("}", "").split(",");
+                String[] cities = chunks[4].replaceAll("\\s+|\\{|\\}", "").split(",");
                 String cityDisplay = "";
+                List<String> thisCityNames = new ArrayList<String>(); 
                 for (String cityIdStr: cities) {
                     if (cityIdStr.length() == 0) continue;
                     long cityId = Long.parseLong(cityIdStr);
                     String cityName = cityNames.get(cityId);
                     if (cityName != null) {
+                        thisCityNames.add(cityName);
                         tokenize(cityName, tokens);
                         if (cityDisplay.length() > 0) cityDisplay += ", ";
                         cityDisplay += cityName;
@@ -168,13 +170,15 @@ public class CreateFromDBOutput {
                 for (int i = tokensWithBaseScore; i < tokens.size(); i++) scores[i] = cityScore;
 
                 /* Compute the display value */
-                JSONObject obj = new JSONObject();
-                obj.put("name", name.isEmpty() ? ref : name);
-                obj.put("city", cityDisplay);
-                obj.put("type", type);
-                obj.put("lat", lat);
-                obj.put("lon", lon);
-                String value = obj.toString();
+//                JSONObject obj = new JSONObject();
+//                obj.put("name", name.isEmpty() ? ref : name);
+//                obj.put("city", cityDisplay);
+//                obj.put("type", type);
+//                obj.put("lat", lat);
+//                obj.put("lon", lon);
+//                String value = obj.toString();
+                byte[] value = new OSMAutocompleteUtils().encodeData(isWays, type, name.isEmpty() ? ref : name, 
+                        thisCityNames.toArray(new String[0]), lon, lat);
 
                 builder.addMultiEntry(tokens.toArray(new String[0]), value, scores);
                 // Good test: rue édouard de <-- will put "avenue édouard" in "rueil" first.
@@ -186,7 +190,7 @@ public class CreateFromDBOutput {
                 }
 //                if (nlines > 50000) break;
             } catch (Exception e) {
-                logger.error("Failed to parse *********");//\n" + line, e);
+                logger.error("Failed to parse *********", e);//\n" + line, e);
 //                throw e;
             }
         }
@@ -206,7 +210,7 @@ public class CreateFromDBOutput {
 
             String[] chunks = StringUtils.split(line, '|');
 
-            String c0 = chunks[0].replace(" ", "");
+            String c0 = StringUtils.replace(chunks[0], " ","");
             if (!StringUtils.isNumeric(c0)) break;
             long id = Long.parseLong(c0);
 
@@ -243,6 +247,7 @@ public class CreateFromDBOutput {
         instance.parseCityList(inCities);
         instance.parseNamedWaysOrNodes(inWays, true);
         instance.parseNamedWaysOrNodes(inNodes, false);
+
         instance.flush();
     }
     

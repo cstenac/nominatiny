@@ -171,4 +171,14 @@ public class Autocompleter {
 		dataBuffer.get(dataBuf, 0, (int)ret.value);
 		return new String(dataBuf, "utf8");
 	}
+	
+	   /** Get the data associated to an autocomplete entry */
+    public byte[] getByteData(long offset) throws IOException {
+        BinaryUtils.VInt ret = new BinaryUtils.VInt();
+        BinaryUtils.readVInt(dataBuffer, offset, ret);
+        byte[] dataBuf = new byte[(int)ret.value];
+        dataBuffer.position((int)(offset + ret.codeSize));
+        dataBuffer.get(dataBuf, 0, (int)ret.value);
+        return dataBuf;
+    }
 }

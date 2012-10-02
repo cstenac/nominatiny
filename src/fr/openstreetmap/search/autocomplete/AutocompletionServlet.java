@@ -23,6 +23,7 @@ import org.json.JSONWriter;
 
 import fr.openstreetmap.search.autocomplete.Autocompleter.AutocompleterEntry;
 import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWordAutocompleterEntry;
+import fr.openstreetmap.search.autocomplete.OSMAutocompleteUtils.MatchData;
 
 public class AutocompletionServlet extends HttpServlet{
 	private static final long serialVersionUID = 1L;
@@ -43,7 +44,8 @@ public class AutocompletionServlet extends HttpServlet{
 	        this.ae = ae;
 	    }
 	    MultiWordAutocompleterEntry ae;
-	    String decodedData;
+	    byte[] encodedData;
+	    MatchData decodedData;
 	}
 
 	@Override
@@ -104,13 +106,17 @@ public class AutocompletionServlet extends HttpServlet{
 			 * This way, stuff that did not really match will get downvoted.
 			 */
 			List<FinalResult> fresults = new ArrayList<AutocompletionServlet.FinalResult>();
+            OSMAutocompleteUtils utils = new OSMAutocompleteUtils();
+
 			int nbRes = 0;
 			for (MultiWordAutocompleterEntry ae : results) {
 			    FinalResult fr = new FinalResult(ae);
-			    fr.decodedData = mwa.completer.getData(ae.offset);
+			    fr.encodedData = mwa.completer.getByteData(ae.offset);
+			    
+			    fr.decodedData = utils.decodeData(fr.encodedData);
 			    
 			    for (String stop : stopped) {
-			        if (fr.decodedData.toLowerCase().contains(stop)) {
+			        if (fr.decodedData.name.toLowerCase().contains(stop)) {
 			            System.out.println("  Boosting " + fr.decodedData);
 			            fr.ae.score += 1000;
 			        }
@@ -144,8 +150,16 @@ public class AutocompletionServlet extends HttpServlet{
 					System.out.println("   RES  " + fr.decodedData + " d=" + fr.ae.distance + " s=" + fr.ae.score + " p=" + fr.ae.correctedTokens);
 					//					System.out.println(" " + ae.offset + " - " + ae.score + " " + ae.distance + " correct prefix=" + ae.correctedPrefix);
 					//        	System.out.println("   " + a.getData(ae.offset));
-					wr.object().key("label").value(fr.decodedData).key("distance").value(fr.ae.distance);
-					wr.key("score").value(fr.ae.score).key("prefix").value(StringUtils.join(fr.ae.correctedTokens, " ")).endObject();
+					wr.object();
+					wr.key("name").value(fr.decodedData.name);
+					wr.key("lat").value(fr.decodedData.lat);
+					wr.key("lon").value(fr.decodedData.lon);
+					wr.key("type").value(fr.decodedData.type);
+					wr.key("cities").value(StringUtils.join(fr.decodedData.cityNames, ", "));
+					wr.key("distance").value(fr.ae.distance);
+					wr.key("score").value(fr.ae.score);
+					wr.key("prefix").value(StringUtils.join(fr.ae.correctedTokens, " "));
+					wr.endObject();
 					if (nbRes++ > 100) break;
 				}
 				wr.endArray();

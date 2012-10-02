@@ -21,7 +21,7 @@ public class OSMAutocompleteUtils {
     public static final byte TYPE_WAY = 1;
     public static final byte TYPE_NODE = 2; 
 
-    public enum ElementType {
+    public static enum ElementType {
         UNKNOWN ,
         HIGHWAY,
         RESIDENTIAL, 
@@ -41,7 +41,9 @@ public class OSMAutocompleteUtils {
         PUBLIC_TRANSPORT , 
         RAILWAY , 
         BUILDING, 
-        AERIALWAY;
+        AERIALWAY,
+        PLACE_OF_WORSHIP,
+        OFFICE;
        
         public static ElementType fromString(String type) {
             return ElementType.valueOf(type.toUpperCase());
@@ -49,7 +51,12 @@ public class OSMAutocompleteUtils {
     }
 
     public static byte typeId(String type) {
-        return (byte)ElementType.fromString(type).ordinal();
+        if (type.length() == 0) return (byte)ElementType.UNKNOWN.ordinal();
+        try {
+            return (byte)ElementType.fromString(type).ordinal();
+        } catch (Throwable t) {
+            throw new Error("Failed to resolve type --" + type + "--");
+        }
     }
     public static String typeName(byte type) {
         return ElementType.values()[type].toString().toLowerCase();
