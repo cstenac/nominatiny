@@ -128,20 +128,8 @@ $( "#name" ).autocomplete({
             //
             out = Array();
             for (var match in data.matches) {
-                l = data.matches[match]["label"]
-                complexMatch = JSON.parse(l);
-
-                complexMatch["distance"] = data.matches[match]["distance"]
-                complexMatch["score"] = data.matches[match]["score"]
-                o = Object();
-                o["name"] = complexMatch["name"];
-                o["city"]  = complexMatch["city"];
-                o["label"] = (complexMatch["name"] + " - " + complexMatch["city"]);
-                o["value"] = complexMatch["lat"] + " " + complexMatch["lon"];
-//                console.info(o);
-
+                complexMatch = data.matches[match];
                 out.push(complexMatch);
-              //  L.LatLng 
             }
             //console.info(out);
             response(out);
