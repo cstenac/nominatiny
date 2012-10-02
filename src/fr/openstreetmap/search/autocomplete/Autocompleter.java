@@ -29,6 +29,7 @@ public class Autocompleter {
 	}
 	
 	public static class DebugInfo {
+	    public String value;
 		public long radixTreeMatchTime;
 		public long radixTreeMatches;
 		public long listsDecodingTime;
@@ -112,6 +113,7 @@ public class Autocompleter {
 		rtfl.match(query, maxDistance);
 		if (di != null) {
 			t1 = System.nanoTime();
+			di.value = query;
 			di.radixTreeMatchTime = (t1 - t0)/1000;
 			di.radixTreeMatches = rtfl.getMatches().size();
 		}
@@ -122,6 +124,11 @@ public class Autocompleter {
 		
 		for (int i = 0; i < rtfl.getMatches().size(); i++) {
 			RadixTreeFuzzyLookup.ApproximateMatch match = rtfl.getMatches().get(i);
+			
+			// In autocompletion mode, we don't care about *longer* terms than us, because they'll always have a worse distance,
+			// while carrying the same values than us (and actually, carrying less)
+			if (match.key.length() > query.length() && rtfl.getMatches().size() > 1) continue;
+			
 //			System.out.println("Value " + match.byteArrayValue.length);
 			int pos = 0;
 			BinaryUtils.readVInt(match.byteArrayValue, 0, vint);

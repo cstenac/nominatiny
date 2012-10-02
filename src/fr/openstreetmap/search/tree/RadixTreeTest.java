@@ -17,6 +17,8 @@ import org.apache.commons.io.IOUtils;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import fr.openstreetmap.search.tree.RadixTreeFuzzyLookup.ApproximateMatch;
+
 
 public class RadixTreeTest {
 //    public static void main(String[] args) throws Exception {
@@ -147,6 +149,7 @@ public class RadixTreeTest {
     }
     
     @Test
+    @Ignore
     public void fuzzyWithNoRadix2( ) throws IOException{
         byte[] data = IOUtils.toByteArray(new FileInputStream("/data/homes/stenac/public_html/osm/data/radix"));
         
@@ -215,7 +218,49 @@ public class RadixTreeTest {
 
     }
 
+    @Test
+    public void distanceOnIncomplete( ) throws IOException{
 
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        RadixTreeWriter rtw = new RadixTreeWriter(baos);
+
+        rtw.addEntry("abc", 3);
+        rtw.addEntry("abcd", 4);
+        rtw.addEntry("abcde", 5);
+        rtw.addEntry("abcdef", 6);
+        rtw.addEntry("abcdefg", 7);
+        rtw.flush();
+
+        RadixTree rt = new RadixTree();
+        rt.buffer = ByteBuffer.wrap(baos.toByteArray());
+        rt.totalSize = baos.toByteArray().length;
+
+        RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
+        rtfl.match("abcdef", 1);
+        for (ApproximateMatch am : rtfl.getMatches()) {
+            System.out.println("" + am.key + " - " + am.distance);
+        }
+
+
+        //            System.out.println("--> " + rt.getEntry("abef"));
+        //            System.out.println("--> " + rt.getEntry("abeg"));
+        //            System.out.println("--> " + rt.getEntry("abehi"));
+        //            System.out.println("--> " + rt.getEntry("abehy"));
+        //            System.out.println("--> " + rt.getEntry("abehzk"));
+        //            System.out.println("--> " + rt.getEntry("abehzx"));
+//                    System.out.println("--> " + rt.getEntry("acd"));
+//        System.out.println("--> " + rt.getEntry("abefa"));
+        //            System.out.println("--> " + rt.getEntry("acefx"));
+        //            System.out.println("--> " + rt.getEntry("acef"));
+        //            System.out.println("--> " + rt.getEntry("acde"));
+        //            System.out.println("--> " + rt.getEntry("acdf"));
+
+
+
+    }
+
+    
+    
     /*
     @Test
     public void a( ) throws IOException{

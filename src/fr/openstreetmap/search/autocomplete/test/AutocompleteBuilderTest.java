@@ -13,7 +13,7 @@ import fr.openstreetmap.search.autocomplete.Autocompleter;
 
 public class AutocompleteBuilderTest {
     public static void main(String[] args) throws Exception {
-        AutocompleteBuilder ab = new AutocompleteBuilder(new File("/data.2/unsorted"), new File("/data.2/sorted"), new File("/data.2/radix"), new File("/data.2/data"));
+        AutocompleteBuilder ab = new AutocompleteBuilder(new File("/data/unsorted"), new File("/data/sorted"), new File("/data/radix"), new File("/data/data"));
         //ab.nbValues = 2;
         
         
@@ -34,10 +34,10 @@ public class AutocompleteBuilderTest {
         
         ab.flush();
         
-        FileChannel radixChannel = new RandomAccessFile(new File("/data.2/radix"), "r").getChannel();
+        FileChannel radixChannel = new RandomAccessFile(new File("/data/radix"), "r").getChannel();
         MappedByteBuffer radixBuffer = radixChannel.map(MapMode.READ_ONLY, 0, radixChannel.size());
         
-        FileChannel dataChannel = new RandomAccessFile(new File("/data.2/data"), "r").getChannel();
+        FileChannel dataChannel = new RandomAccessFile(new File("/data/data"), "r").getChannel();
         MappedByteBuffer dataBuffer = dataChannel.map(MapMode.READ_ONLY, 0, dataChannel.size());
         
         Autocompleter a = new Autocompleter(radixBuffer, dataBuffer);

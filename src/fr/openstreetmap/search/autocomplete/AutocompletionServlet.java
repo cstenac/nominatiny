@@ -146,7 +146,7 @@ public class AutocompletionServlet extends HttpServlet{
 					//        	System.out.println("   " + a.getData(ae.offset));
 					wr.object().key("label").value(fr.decodedData).key("distance").value(fr.ae.distance);
 					wr.key("score").value(fr.ae.score).key("prefix").value(StringUtils.join(fr.ae.correctedTokens, " ")).endObject();
-					if (nbRes++ > 25) break;
+					if (nbRes++ > 100) break;
 				}
 				wr.endArray();
 
@@ -156,7 +156,7 @@ public class AutocompletionServlet extends HttpServlet{
 				wr.key("stopWords").value(StringUtils.join(stopped, ", "));
 				wr.key("tokens").array();
 				for (int i = 0; i < tokensList.size(); i++) {
-					wr.object().key("token").value(tokensList.get(i));
+					wr.object().key("token").value(di.tokensDebugInfo.get(i).value);
 					wr.key("rtMatches").value(di.tokensDebugInfo.get(i).radixTreeMatches);
 					wr.key("decodedMatches").value(di.tokensDebugInfo.get(i).decodedMatches);
 					wr.key("rtMatchTime").value(di.tokensDebugInfo.get(i).radixTreeMatchTime);
