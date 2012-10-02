@@ -1,5 +1,6 @@
 package fr.openstreetmap.search.autocomplete;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -9,10 +10,30 @@ import java.util.Map;
 import org.apache.commons.lang.ArrayUtils;
 
 import fr.openstreetmap.search.autocomplete.Autocompleter.AutocompleterEntry;
+import fr.openstreetmap.search.binary.LongList;
 
 /** This class is not thread safe */
 public class MultipleWordsAutocompleter {
     public Autocompleter completer;
+
+    Map<String, long[]> filters = new HashMap<String, long[]>();
+
+    /**
+     * Adds this word as a filter. 
+     * Unlike regular tokens, for filters, score is not evaluated. It only prunes non-matching hits.
+     * Filters are suited for long lists. They are evaluated lists to query the filter as little as possible.
+     * */
+    public void addFilter(String token, long[] matchingOffsets) {
+        filters.put(token, matchingOffsets);
+    }
+    
+    public long[] computeFilter(String token) {
+        List<AutocompleterEntry> list = completer.getOffsets(token, 0, null);
+        long[] ret = new long[list.size()];
+        for (int i = 0; i < list.size(); i++) ret[i] = list.get(i).offset;
+        Arrays.sort(ret);
+        return ret;
+    }
 
     public int[] distanceMap = new int[]{0,0,0, 1, 1, 1};
 
@@ -26,7 +47,7 @@ public class MultipleWordsAutocompleter {
         public long score;
         public long distance;
         public String[] correctedTokens;
-        
+
         @Override
         public int compareTo(MultiWordAutocompleterEntry o) {
             if (distance < o.distance) return -1;
@@ -36,30 +57,39 @@ public class MultipleWordsAutocompleter {
             return 0;
         }
     }
-    
-    
-    
+
+
+
     public List<MultiWordAutocompleterEntry> autocomplete(String[] tokens, int maxDistance, DebugInfo di) {
         List<String> list = new ArrayList<String>();
         for (String t : tokens) list.add(t);
         return autocomplete(list, maxDistance, di);
     }
 
-    public List<MultiWordAutocompleterEntry> autocomplete(List<String> tokens, int defaultMaxDistance, DebugInfo di) {
-
+    public List<MultiWordAutocompleterEntry> autocomplete(List<String> origTokens, int defaultMaxDistance, DebugInfo di) {
         List<MultiWordAutocompleterEntry> out = new ArrayList<MultiWordAutocompleterEntry>();
-        if (tokens.size() == 0) return out;
+        if (origTokens.size() == 0) return out;
+
+        List<String> nonFilterTokens = new ArrayList<String>();
+        List<String> filterTokens = new ArrayList<String>();
+        for (String token : origTokens) {
+            if (filters.containsKey(token)) {
+                filterTokens.add(token);
+            } else {
+                nonFilterTokens.add(token);
+            }
+        }
 
         /* We will always decode all lists, so do it all at once. The advantage is that we can then sort the lists,
          * and start by the smallest one, to prune the insertions in the hashmaps
          */
         List<List<AutocompleterEntry>> lists = new ArrayList<List<AutocompleterEntry>>();
 
-        for (int i = 0; i < tokens.size(); i++) {
+        for (int i = 0; i < nonFilterTokens.size(); i++) {
             Autocompleter.DebugInfo tokenDI = null;
             if (di != null) tokenDI = new Autocompleter.DebugInfo();
 
-            lists.add(completer.getOffsets(tokens.get(i), defaultMaxDistance, tokenDI));
+            lists.add(completer.getOffsets(nonFilterTokens.get(i), defaultMaxDistance, tokenDI));
 
             if (di != null) di.tokensDebugInfo.add(tokenDI);
         }
@@ -73,7 +103,7 @@ public class MultipleWordsAutocompleter {
 
         Map<Long, MultiWordAutocompleterEntry> prevMap = null;
 
-        for (int i = 0; i < tokens.size(); i++) {
+        for (int i = 0; i < nonFilterTokens.size(); i++) {
             Map<Long, MultiWordAutocompleterEntry> mapAfter = new HashMap<Long, MultipleWordsAutocompleter.MultiWordAutocompleterEntry>(2000);
             if (prevMap == null) {// First token, always take everything
                 //                System.out.println("FIRST TOKEN, prev list" + lists.get(i).size());
@@ -90,7 +120,7 @@ public class MultipleWordsAutocompleter {
                     MultiWordAutocompleterEntry prev =  prevMap.get(ae.offset);
                     if (prev != null) {
                         prev.score = Math.min(prev.score, ae.score);
-                        prev.distance = Math.min(prev.distance, ae.distance);
+                        prev.distance = Math.max(prev.distance, ae.distance);
                         prev.correctedTokens = (String[])ArrayUtils.add(prev.correctedTokens, ae.correctedPrefix);
                         mapAfter.put(ae.offset, prev);
                     }
@@ -100,11 +130,39 @@ public class MultipleWordsAutocompleter {
             }
             prevMap = mapAfter;
         }
+        
+        /* Now, apply the filters */
+        for (String token : filterTokens) {
+            Autocompleter.DebugInfo tokenDI = new Autocompleter.DebugInfo();
+            tokenDI.radixTreeMatches = 0;
+            tokenDI.radixTreeMatchTime = 0;
+            long before = System.nanoTime();
+            
+            long[] filter = filters.get(token);
+            tokenDI.decodedMatches = filter.length; 
+
+            LongList removedOffsets = new LongList();
+            for (long offsetToFilter : prevMap.keySet()) {
+                if (Arrays.binarySearch(filter, offsetToFilter) < 0) {
+                    removedOffsets.add(offsetToFilter);
+                }
+            }
+            for (long offsetToRemove : removedOffsets) {
+                prevMap.remove(offsetToRemove);
+            }
+            
+            tokenDI.value = token + " (filter) (removed:" + removedOffsets.size() + ")";
+
+            
+            tokenDI.listsDecodingTime = (System.nanoTime() - before)/1000;
+            if (di != null) di.tokensDebugInfo.add(tokenDI);
+        }
+        
         out.addAll(prevMap.values());
         return out;
     }
-    
-    
+
+
     /* Previous version that did not correctly compute the corrected tokens, and that did not sort the inverted lists */
     public List<Autocompleter.AutocompleterEntry> autocompleteOld(String[] tokens, int maxDistance, DebugInfo di) {
         List<String> list = new ArrayList<String>();

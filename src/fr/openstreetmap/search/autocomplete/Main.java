@@ -36,6 +36,8 @@ public class Main {
 		
 		/* Preload a bit */
 		mwa.autocomplete(new String[]{"jol", "cur"}, 1, null);
+		
+		mwa.addFilter("rue", mwa.computeFilter("rue"));
 
 		Server server = new Server(8080);
 
