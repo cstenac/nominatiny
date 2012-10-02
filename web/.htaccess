@@ -1,3 +1,5 @@
 RewriteEngine on
 RewriteRule complete http://localhost:8080/complete [p]
 RewriteRule nominatim http://nominatim.openstreetmap.org/search [p]
+
+AddCharset utf-8 .html

@@ -13,7 +13,7 @@
 .null { color: magenta; }
 .key { color: red; }
 
-#debug {
+.debug {
     font-size: 11px;
 }
 
@@ -63,11 +63,13 @@
 <h4>Nominatim results</h4>
 
 <div id="nominatim">
-
+<em>Start searching ...</em>
 </div>
 
+<div style="vertical-align:bottom">
 <h4>Debug info</h4>
 <div id="debug">
+</div>
 </div>
 
 </td>
@@ -121,10 +123,10 @@ $(document).ready(function() {
 
 $( "#name" ).autocomplete({
     appendTo : '#results',
-    delay : 50,
+    delay : 75,
     source: function(request, response) {
         $.getJSON("complete?q=" + request.term, function(data) {
-            //markers.clearLayers();
+            markers.clearLayers();
             //
             out = Array();
             for (var match in data.matches) {
@@ -190,7 +192,7 @@ $( "#name" ).autocomplete({
                                                                                 }).data( "autocomplete" )._renderItem = function( ul, item ) {
             return $( "<li></li>" )
                 .data( "item.autocomplete", item )
-                .append( "<a>" + item.name + " <span class=\"city\">" + item.city + "</span><span class=\"type\">(" + item.type + ")</span><span class=\"debug\"> d=" + item.distance + " s=" + item.score + "</span></a>" )
+                .append( "<a>" + item.name + " <span class=\"city\">" + item.city + " </span><span class=\"type\">(" + item.type + ")</span> <span class=\"debug\"> d=" + item.distance + " s=" + item.score + "</span></a>" )
                 .appendTo( ul );
 }
 
