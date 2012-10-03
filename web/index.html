@@ -7,6 +7,48 @@
 <script src="http://cdn.leafletjs.com/leaflet-0.4/leaflet.js"></script>
 <link rel="stylesheet" href="style.css" />
 <style>
+body {
+    font-family: arial;
+    font-size: 13px;
+    padding: 0px;
+    margin: 0px;
+    max-height:100%;
+}
+
+td {
+    margin: 0px;
+    padding: 0px;
+
+}
+
+#maintable {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+#topbar {
+ background-color:#f0f0f0;
+}
+
+#leftcolumn {
+    border-top: 1px solid rgba(100, 100, 100, 0.3);
+}
+
+#search_results_wrapper {
+    height:90%;
+    max-height:90%;
+    overflow: auto;
+}
+
+a {
+    font-weight: bold;
+    text-decoration: none;
+    color: #25C;
+    font-size: 1.2em;
+}
+
 .string { color: green; }
 .number { color: darkorange; }
 .boolean { color: blue; }
@@ -15,6 +57,10 @@
 
 .debug {
     font-size: 11px;
+}
+
+ul {
+    padding-left: 0em;
 }
 
 .ui-autocomplete .ui-menu-item {
@@ -38,15 +84,31 @@
  z-index: 1001;
 }
 
+.selected {
+    background-color:#cef;
+}
 
-#map { width: 100%; height: 600px; }
+#map { width: 100%; height: 100% ;
+
+  border: 1px solid rgba(100, 100, 100, 0.3);
+}
+
+.search_result span.city {
+    font-size: 0.9em;
+}
+
+.search_result {
+    padding-bottom: 0.3em;
+}
+
 </style>
 </head>
 
 <body>
-<table style="width:100%; height:100%; vertical-align:top">
-<tr>
-<td colspan="2" style="width:100%; vertical-align:top;">
+<table id="maintable" cellpadding="0" cellspacing="0">
+<tr style="height: 70px">
+<td id="topbar" colspan="2" style="width:100%; vertical-align:center;">
+
 <div class="ui-widget" style="margin:0 auto; width:100%; text-align: center">
 <!--    <label for="name">Look up an OSM name</label>-->
         <input id="name" style="width:600px" />
@@ -58,22 +120,30 @@
 </td>
 </tr>
 <tr>
-<td style="vertical-align:top; width: 30%">
+<td style="vertical-align:top; width: 20%" id="leftcolumn">
 
-<h4>Nominatim results</h4>
+<div id="search_results_wrapper">
+<div id="search_results">
+
+</div>
+</div>
+
+<!--<h4>Nominatim results</h4>
 
 <div id="nominatim">
 <em>Start searching ...</em>
 </div>
+-->
 
+<!--
 <div style="vertical-align:bottom">
-<h4>Debug info</h4>
-<div id="debug">
-</div>
+  <div id="debug">
+  </div>
 </div>
 
 </td>
-<td style="width:70%; vertical-align: top;">
+-->
+<td style="width:80%; vertical-align: top;">
 <div id="map">
 </div>
 </td>
@@ -105,98 +175,182 @@ function syntaxHighlight(json) {
     });
 }
 
+var currentlyDisplayedData = null;
+var currentlySelectedItem = null;
+var map = null;
+var markers = new L.LayerGroup();
+
+function selectDisplayedItem(index) {
+    item = currentlyDisplayedData[index];
+    setMarkerFromItem(item);
+
+    if (currentlySelectedItem != null) {
+        currentlySelectedItem.removeClass("selected");
+    }
+
+    currentlySelectedItem = $("#displayed_item_" + index);
+    currentlySelectedItem.addClass("selected");
+}
+
+function setMarkerFromItem(item) {
+    markers.clearLayers();
+    var latlng = new L.LatLng(item.lat, item.lon);
+    markers.addLayer(new L.Marker(latlng));
+    var sw = new L.LatLng(latlng.lat - 0.006, latlng.lng - 0.006);    
+    var ne = new L.LatLng(latlng.lat + 0.006, latlng.lng + 0.006);    
+    map.fitBounds(new L.LatLngBounds(sw, ne));
+}
+
+function displayNoResults() {
+    $("#search_results").html("No results");
+}
+
+function displaySearchResults(data) {
+    currentlyDisplayedData = data;
+    var html = "<ul>";
+    for (var i in data) {
+        item = data[i];
+
+        if (item.type == "residential") {
+            image = "road";
+        } else if (item.type == "place") {
+            image = "bigcity";
+        } else if (item.type == "highway") {
+            image = "road";
+        } else if (item.type == "waterway") {
+            image = "river";
+        } else if (item.type == "building") {
+            image = "apartment";
+        } else {
+            image = item.type;
+        }
+
+
+        html+= "<li id=\"displayed_item_" + i + "\" class=\"search_result\">";
+        html +="<div style=\"float:left\"><img src=\"icons/" + image + ".png\" width=\"32\"/></div>";
+        html += "<div style=\"padding-left: 0.3em\"><a href=\"#\" onclick=\"selectDisplayedItem(" + i + ")\">" + item.name + "</a>";
+        if (item.cities == "") {
+            item.cities = "Unknown";
+        }
+        html+= "<br /><span class=\"city\"> " + item.cities + "</span></div>";
+        html += "</li>";
+
+/*ppend( "<a>" + item.name + " <span class=\"city\">" + item.cities +
+                    " </span><span class=\"type\">(" + item.type + ")</span> <span class=\"debug\"> d=" + item.distance + " s=" + item.score + "</span></a>" )
+ 
+                    html += "<li>" + data[i]["display_name"] + "</li>";
+                }
+                */
+    }
+    html += "</ul>";
+    $("#search_results").html(html);
+}
+
+function setMarkersForAllSearchResults(data) {
+
+}
 
 $(document).ready(function() {
-    var map = L.map("map",  {
+    map = L.map("map",  {
             center : new L.LatLng(25, 0),
             zoom: 3
-        });
+    });
     var mapnikLayer = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                    maxZoom: 18,
                    attribution: 'OpenStreetMap'                                                                                                     
     });
 
-    var markers = new L.LayerGroup();
+    var currentData = null;
+
 
     map.addLayer(mapnikLayer);
     markers.addTo(map); 
 
-$( "#name" ).autocomplete({
-    appendTo : '#results',
-    delay : 75,
-    source: function(request, response) {
-        $.getJSON("complete?q=" + request.term, function(data) {
-            markers.clearLayers();
-            //
-            out = Array();
-            for (var match in data.matches) {
-                complexMatch = data.matches[match];
-                out.push(complexMatch);
-            }
-            //console.info(out);
-            response(out);
-            //data.matches);
-            if ($("#display_debug").attr('checked')) {
-                $("#debug").html("<pre>" + syntaxHighlight(data.debug)+ "</pre>");
-            }
-        });
-    },
-    minLength: 2,
-
-/*   focus: function( event, ui ) {
-                $( "#name" ).val( ui.item.name );
-                return false;
-            }*/
-
-         open: function(){
-        $(this).autocomplete('widget').css('z-index', 1001);
-        return false;
-    },
-
-
-     select: function( event, ui ) {
-        $( "#name" ).val( ui.item.name );
-        var latlng = new L.LatLng(ui.item.lat, ui.item.lon);
-        markers.addLayer(new L.Marker(latlng));
-        var sw = new L.LatLng(latlng.lat - 0.006, latlng.lng - 0.006);    
-        var ne = new L.LatLng(latlng.lat + 0.006, latlng.lng + 0.006);    
-     
-        map.fitBounds(new L.LatLngBounds(sw, ne));
-        
-        $("#nominatim").html("Searching ...");
+    $( "#name" ).autocomplete({
+        appendTo : '#results',
+        delay : 100,
+        source: function(request, response) {
+            $.getJSON("complete?q=" + request.term, function(data) {
+                markers.clearLayers();
+                out = Array();
+                for (var match in data.matches) {
+                    complexMatch = data.matches[match];
+                    out.push(complexMatch);
+                }
+                response(out);
+                currentData = out;
+                if ($("#display_debug").attr('checked')) {
+                    $("#debug").html("<pre>" + syntaxHighlight(data.debug)+ "</pre>");
+                }
+            });
+        },
+        minLength: 2,
+        open: function(){
+            $(this).autocomplete('widget').css('z-index', 1001);
+            return false;
+        },
     
-        $.getJSON("nominatim?q=" + ui.item.name + "&format=json&contact=clement.stenac@gmail.com", function(data) {
-            var html = "<ul>";
-            for (var i in data) {
-                html += "<li>" + data[i]["display_name"] + "</li>";
+        select: function( event, ui ) {
+            $( "#name" ).val( ui.item.name );
+            idx = 0;
+            for (var i in currentData) {
+                console.info(currentData[i] + " vs" + ui.item);
+                if (currentData[i].name == ui.item.name && currentData[i].lat == ui.item.lat) {
+                    idx = i;
+                }
             }
-            html += "</ul>";
-            $("#nominatim").html(html);
-        });
-                return false;
-            }
+            /* Display all results in the left column */
+            displaySearchResults(currentData);
+            selectDisplayedItem(idx);
 
-/*
- * [{"place_id":"149504608","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"relation","osm_id":"1975394","boundingbox":["47.9329299926758","47.945858001709","13.9792394638062","13.9879875183105"],"lat":"47.939393","lon":"13.9844633367229","display_name":"Test, Gemeinde Scharnstein, Bezirk Gmunden, Upper Austria, 4644, Austria","class":"landuse","type":"farmland"},{"place_id":"27977114","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"way","osm_id":"14494972","boundingbox":["32.6140632629395","32.6165046691895","-108.98770904541","-108.982727050781"],"lat":"32.61448","lon":"-108.985202","display_name":"Test, Hidalgo County, New Mexico, United States of America","class":"highway","type":"residential"},{"place_id":"146209601","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"way","osm_id":"169950409","boundingbox":["51.9216766357422","51.9226264953613","6.35835266113281","6.36030578613281"],"lat":"51.922229","lon":"6.3595574","display_name":"test, Terborg, Oude IJsselstreek, Gelderland, Netherlands, 7064GC, The Netherlands","class":"highway","type":"unclassified"},{"place_id":"121641029","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"way","osm_id":"138101646","boundingbox":["48.4168472290039","48.4187240600586","106.92643737793","106.935089111328"],"lat":"48.4187207","lon":"106.9264403","display_name":"test, Ulaanbaatar, Mongolia","class":"highway","type":"track"},{"place_id":"91225977","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"way","osm_id":"100263224","boundingbox":["42.2374801635742","42.2573432922363","43.4745407104492","43.4963645935059"],"lat":"42.2455661","lon":"43.4876285","display_name":"test, Korbouli, \u10e1\u10d0\u10e9\u10ee\u10d4\u10e0\u10d4, \u10d8\u10db\u10d4\u10e0\u10d4\u10d7\u10d8, Georgia","class":"highway","type":"track"},{"place_id":"45937102","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"way","osm_id":"37684354","boundingbox":["47.6664733886719","47.6695175170898","8.04853248596191","8.05685424804688"],"lat":"47.6692689","lon":"8.0531128","display_name":"TEST, G\u00f6rwihl, Landkreis Waldshut, Baden-W\u00fcrttemberg, 48758, Germany","class":"highway","type":"track"},{"place_id":"146722724","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"way","osm_id":"170697384","boundingbox":["-30.9982242584229","-30.9959011077881","150.236083984375","150.237594604492"],"lat":"-30.9982231","lon":"150.2360926","display_name":"test, Gunnedah, New South Wales, Australia","class":"highway","type":"residential"},{"place_id":"115133020","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"way","osm_id":"130919210","boundingbox":["38.4372406005859","38.4438133239746","22.8776359558105","22.878833770752"],"lat":"38.4410058","lon":"22.8778737","display_name":"\u03a6\u0399\u039b\u03a9\u039d\u039f\u03a3, \u039a. \u039b\u03b5\u03b2\u03b1\u03b4\u03ad\u03c9\u03bd, \u0394\u03ae\u03bc\u03bf\u03c2 \u039b\u03b5\u03b2\u03b1\u03b4\u03ad\u03c9\u03bd, Boeotia Prefecture, Periphery of Continental Greece, Greece","class":"highway","type":"secondary"},{"place_id":"2484386814","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"node","osm_id":"1890111971","boundingbox":[52.020048370361,52.040052185059,9.2299854660034,9.2499864196777],"lat":"52.0300501","lon":"9.2399864","display_name":"RH Hydrant 020, Kirchweg, Aerzen, Landkreis Hameln-Pyrmont, Lower Saxony, 31855, Germany","class":"emergency","type":"fire_hydrant"},{"place_id":"2484386812","licence":"Data \u00a9 OpenStreetMap contributors, ODbL 1.0. http:\/\/www.openstreetmap.org\/copyright","osm_type":"node","osm_id":"1890111967","boundingbox":[52.021387329102,52.041391143799,9.2297918701172,9.2497928237915],"lat":"52.0313907","lon":"9.2397924","display_name":"RH Hydrant 018, Hauptstra\u00dfe, Aerzen, Landkreis Hameln-Pyrmont, Lower Saxony, 31855, Germany","class":"emergency","type":"fire_hydrant"}]
- */
+            /* 
+            $("#nominatim").html("Searching ...");
+    
+            $.getJSON("nominatim?q=" + ui.item.name + "&format=json&contact=clement.stenac@gmail.com", function(data) {
+                var html = "<ul>";
+                for (var i in data) {
+                    html += "<li>" + data[i]["display_name"] + "</li>";
+                }
+                html += "</ul>";
+                $("#nominatim").html(html);
+            });
+            */
+            return false;
+        }
+                                                                            
+    }).data("autocomplete")._renderItem = function( ul, item ) {
+        return $( "<li></li>" )
+            .data( "item.autocomplete", item )
+            .append( "<a>" + item.name + " <span class=\"city\">" + item.cities +
+                    " </span><span class=\"type\">(" + item.type + ")</span> <span class=\"debug\"> d=" + item.distance + " s=" + item.score + "</span></a>" )
+            .appendTo( ul );
+    }
 
-/*                                        select: function( event, ui ) {
-                                                            log( ui.item ?
-                                                                                "Selected: " + ui.item.value + " aka " + ui.item.id :
-                                                                                                    "Nothing selected, input was " + this.value );
-
-            $.getJSON("nominatim?q=" + 
-
-                                                                        }
-                                                                                */
-                                                                                }).data( "autocomplete" )._renderItem = function( ul, item ) {
-            return $( "<li></li>" )
-                .data( "item.autocomplete", item )
-                .append( "<a>" + item.name + " <span class=\"city\">" + item.city + " </span><span class=\"type\">(" + item.type + ")</span> <span class=\"debug\"> d=" + item.distance + " s=" + item.score + "</span></a>" )
-                .appendTo( ul );
-}
-
+    $("#name").keypress(function (e) {
+        if (e.which == 13) {
+            $("#name").autocomplete("close");
+            $.getJSON("complete?q=" + $("#name").val(), function(data) {
+                markers.clearLayers();
+                out = Array();
+                for (var match in data.matches) {
+                    complexMatch = data.matches[match];
+                    out.push(complexMatch);
+                }
+                currentData = out;
+                if (currentData.length > 0) {
+                    displaySearchResults(currentData);
+                    selectDisplayedItem(0);
+                } else {
+                    displayNoResults();
+                }
+                if ($("#display_debug").attr('checked')) {
+                    $("#debug").html("<pre>" + syntaxHighlight(data.debug)+ "</pre>");
+                }
+            });
+        }
+    });
 });
+
 </script>
 
 </body>
