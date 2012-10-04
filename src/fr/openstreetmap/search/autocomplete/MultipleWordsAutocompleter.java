@@ -26,7 +26,7 @@ public class MultipleWordsAutocompleter {
     public void addFilter(String token, long[] matchingOffsets) {
         filters.put(token, matchingOffsets);
     }
-    
+
     public long[] computeFilter(String token) {
         List<AutocompleterEntry> list = completer.getOffsets(token, 0, null);
         long[] ret = new long[list.size()];
@@ -39,7 +39,9 @@ public class MultipleWordsAutocompleter {
 
     public static class DebugInfo {
         List<Autocompleter.DebugInfo> tokensDebugInfo = new ArrayList<Autocompleter.DebugInfo>();
+        long totalTokensMatchTime;
         long intersectionTime;
+        long filterTime; 
     }
 
     public static class MultiWordAutocompleterEntry implements Comparable<MultiWordAutocompleterEntry>{
@@ -80,6 +82,8 @@ public class MultipleWordsAutocompleter {
             }
         }
 
+        if (nonFilterTokens.size() == 0) return out;
+
         /* We will always decode all lists, so do it all at once. The advantage is that we can then sort the lists,
          * and start by the smallest one, to prune the insertions in the hashmaps
          */
@@ -91,8 +95,13 @@ public class MultipleWordsAutocompleter {
 
             lists.add(completer.getOffsets(nonFilterTokens.get(i), defaultMaxDistance, tokenDI));
 
-            if (di != null) di.tokensDebugInfo.add(tokenDI);
+            if (di != null) {
+                di.tokensDebugInfo.add(tokenDI);
+                di.totalTokensMatchTime += tokenDI.listsDecodingTime + tokenDI.radixTreeMatchTime;
+            }
         }
+
+        long beforeIntersect = System.nanoTime();
 
         Collections.sort(lists, new Comparator<List<AutocompleterEntry>>() {
             @Override
@@ -130,14 +139,19 @@ public class MultipleWordsAutocompleter {
             }
             prevMap = mapAfter;
         }
-        
+
+        if (di != null) {
+            long afterIntersect = System.nanoTime();
+            di.intersectionTime += (afterIntersect - beforeIntersect)/1000;
+        }
+
         /* Now, apply the filters */
         for (String token : filterTokens) {
             Autocompleter.DebugInfo tokenDI = new Autocompleter.DebugInfo();
             tokenDI.radixTreeMatches = 0;
             tokenDI.radixTreeMatchTime = 0;
             long before = System.nanoTime();
-            
+
             long[] filter = filters.get(token);
             tokenDI.decodedMatches = filter.length; 
 
@@ -150,14 +164,16 @@ public class MultipleWordsAutocompleter {
             for (long offsetToRemove : removedOffsets) {
                 prevMap.remove(offsetToRemove);
             }
-            
+
             tokenDI.value = token + " (filter) (removed:" + removedOffsets.size() + ")";
 
-            
             tokenDI.listsDecodingTime = (System.nanoTime() - before)/1000;
-            if (di != null) di.tokensDebugInfo.add(tokenDI);
+            if (di != null) {
+                di.tokensDebugInfo.add(tokenDI);
+                di.filterTime += tokenDI.listsDecodingTime;
+            }
         }
-        
+
         out.addAll(prevMap.values());
         return out;
     }

@@ -56,6 +56,7 @@ public class AutocompletionServlet extends HttpServlet{
 		if (query == null) {
 			query = req.getParameter("term");
 		}
+		System.out.println("QUERY: " + query);
 
 		List<String> stopped = new ArrayList<String>();
 		List<String> tokensList = new ArrayList<String>();
@@ -82,15 +83,10 @@ public class AutocompletionServlet extends HttpServlet{
 			MultipleWordsAutocompleter.DebugInfo di = new MultipleWordsAutocompleter.DebugInfo();
 
 			long beforeQuery= System.nanoTime();
-
-			List<MultiWordAutocompleterEntry> results = null;
-			if (tokensList.size() > 0) {
-				results = mwa.autocomplete(tokensList, 1, di);
-			}
-			
+			List<MultiWordAutocompleterEntry> results = mwa.autocomplete(tokensList, 1, di);
 			long afterQuery= System.nanoTime();
 
-			/* First, sort by distance then score */
+            /* First, sort by distance then score */
 			Collections.sort(results, new Comparator<MultiWordAutocompleterEntry>() {
                 @Override
                 public int compare(MultiWordAutocompleterEntry o1, MultiWordAutocompleterEntry o2) {
@@ -124,7 +120,7 @@ public class AutocompletionServlet extends HttpServlet{
 			    fresults.add(fr);
 			    
 			    // Don't decode too much
-			    if (nbRes++ > 200) break;
+			    if (nbRes++ > 100) break;
 			}
 			Collections.sort(fresults, new Comparator<FinalResult>() {
 
@@ -138,8 +134,6 @@ public class AutocompletionServlet extends HttpServlet{
 
 			resp.setContentType("application/json");
 
-			System.out.println("QUERY: " + query);
-
 			BufferedWriter bwr = new BufferedWriter(resp.getWriter());
 			JSONWriter wr = new JSONWriter(bwr);
 			try {
@@ -147,7 +141,7 @@ public class AutocompletionServlet extends HttpServlet{
 
 				nbRes = 0;
 				for (FinalResult fr : fresults) {
-					System.out.println("   RES  " + fr.decodedData + " d=" + fr.ae.distance + " s=" + fr.ae.score + " p=" + fr.ae.correctedTokens);
+//					System.out.println("   RES  " + fr.decodedData + " d=" + fr.ae.distance + " s=" + fr.ae.score + " p=" + fr.ae.correctedTokens);
 					//					System.out.println(" " + ae.offset + " - " + ae.score + " " + ae.distance + " correct prefix=" + ae.correctedPrefix);
 					//        	System.out.println("   " + a.getData(ae.offset));
 					wr.object();
@@ -160,7 +154,7 @@ public class AutocompletionServlet extends HttpServlet{
 					wr.key("score").value(fr.ae.score);
 					wr.key("prefix").value(StringUtils.join(fr.ae.correctedTokens, " "));
 					wr.endObject();
-					if (nbRes++ > 100) break;
+					if (nbRes++ > 25) break;
 				}
 				wr.endArray();
 
@@ -169,7 +163,7 @@ public class AutocompletionServlet extends HttpServlet{
 				wr.key("debug").object();
 				wr.key("stopWords").value(StringUtils.join(stopped, ", "));
 				wr.key("tokens").array();
-				for (int i = 0; i < tokensList.size(); i++) {
+				for (int i = 0; i < di.tokensDebugInfo.size(); i++) {
 					wr.object().key("token").value(di.tokensDebugInfo.get(i).value);
 					wr.key("rtMatches").value(di.tokensDebugInfo.get(i).radixTreeMatches);
 					wr.key("decodedMatches").value(di.tokensDebugInfo.get(i).decodedMatches);
@@ -184,21 +178,24 @@ public class AutocompletionServlet extends HttpServlet{
 
 				wr.key("preprocessTime").value((beforeQuery - startup)/1000);
 				wr.key("processTime").value((afterQuery - beforeQuery)/1000);
+                wr.key("totalMatchTime").value(di.totalTokensMatchTime);
+                wr.key("filterTime").value(di.filterTime);
 				wr.key("intersectionTime").value(di.intersectionTime);
 				wr.key("sortTime").value((afterSort - afterQuery)/1000);
 				wr.key("resultsWriteTime").value((afterWriteData- afterSort)/1000);
 				wr.key("totalServerTime").value((atEnd - startup)/1000);
 				wr.endObject();
-
 				wr.endObject();
 
-				System.out.print("QUERY: " + query + "DONE: ppTime= " + (beforeQuery - startup)/1000);
-				System.out.print(" pTime= " + (afterQuery - beforeQuery)/1000);
-				System.out.print(" sTime= " + (afterSort - afterQuery)/1000);
-				System.out.print(" rWTime= " + (afterWriteData- afterSort)/1000);
-				System.out.println("tSTime= " + (atEnd - startup)/1000);
-
-				bwr.flush();
+                bwr.flush();
+                
+				System.out.print("QUERY: " + query + " DONE: totalMatches=" + results.size());
+				System.out.print(" totalTime=" + (atEnd-startup)/1000);
+				System.out.print(" preprocTime=" + (beforeQuery - startup)/1000);
+				System.out.print(" processTime=" + (afterQuery - beforeQuery)/1000);
+                System.out.print(" (match=" + di.totalTokensMatchTime + " filter=" + di.filterTime + " intersect=" + di.intersectionTime + ")");
+				System.out.print(" sortTime=" + (afterSort - afterQuery)/1000);
+				System.out.print(" writeTime=" + (afterWriteData- afterSort)/1000);
 
 			} catch (JSONException e) {
 				throw new IOException(e);
