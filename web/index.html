@@ -1,3 +1,4 @@
+<!DOCTYPE HTML>
 <html>
 <head>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
@@ -13,33 +14,62 @@ body {
     padding: 0px;
     margin: 0px;
     max-height:100%;
+    overflow: hidden;
 }
 
-td {
-    margin: 0px;
-    padding: 0px;
-
-}
-
-#maintable {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
+#container {
+    width:100%;
+    max-height:100%;
 }
 
 #topbar {
- background-color:#f0f0f0;
+    position: relative;
+    margin: 0 auto;
+    width: 100%;
+    background-color:#eeeeee;
+    height:60px;
+}
+
+#search_widget {
+    position:absolute;
+    top: 50%;
+    margin-top:-3em;
 }
 
 #leftcolumn {
+    position:absolute;
+    width:320px;
+    height:100%;
     border-top: 1px solid rgba(100, 100, 100, 0.3);
+}
+
+#mapbox {
+    position:absolute;
+    top:60px;
+    left:320px;
+    padding:0;
+    margin:0;
+    height:100%;
+    width:100%;
 }
 
 #search_results_wrapper {
     height:90%;
     max-height:90%;
     overflow: auto;
+}
+
+#footer {
+    position:absolute;
+    top:90%;
+width: 100%;
+    text-align: center;
+    margin: 0 auto;
+}
+
+.search_result {
+    list-item-style: none;
+clear:both;
 }
 
 a {
@@ -105,51 +135,34 @@ ul {
 </head>
 
 <body>
-<table id="maintable" cellpadding="0" cellspacing="0">
-<tr style="height: 70px">
-<td id="topbar" colspan="2" style="width:100%; vertical-align:center;">
 
-<div class="ui-widget" style="margin:0 auto; width:100%; text-align: center">
-<!--    <label for="name">Look up an OSM name</label>-->
-        <input id="name" style="width:600px" />
-        <label for="display_debug">debug</label>
-        <input id="display_debug" type="checkbox" />
+<div id="container">
+
+    <div id="topbar">
+        <div id="search_widget" class="ui-widget" style="margin:0 auto; width:100%; text-align: center">
+            <input id="name" style="width:600px" />
+         <!--   <label for="display_debug">debug</label>
+            <input id="display_debug" type="checkbox" />
+            -->
+        </div>
+        <div id="results">
+        </div>
+    </div>
+
+
+    <div id="leftcolumn">
+        <div id="search_results_wrapper">
+            <div id="search_results">                                                                                                                                                              </div>                                                                                                                                                                             </div>
+        <div id="footer">
+            Copyright 2012 OpenStreetMap contributors
+        </div>
+    </div>
+
+    <div id="mapbox">
+        <div id="map"></div>
+    </div>
+
 </div>
-<div id="results">
-</div>
-</td>
-</tr>
-<tr>
-<td style="vertical-align:top; width: 20%" id="leftcolumn">
-
-<div id="search_results_wrapper">
-<div id="search_results">
-
-</div>
-</div>
-
-<!--<h4>Nominatim results</h4>
-
-<div id="nominatim">
-<em>Start searching ...</em>
-</div>
--->
-
-<!--
-<div style="vertical-align:bottom">
-  <div id="debug">
-  </div>
-</div>
-
-</td>
--->
-<td style="width:80%; vertical-align: top;">
-<div id="map">
-</div>
-</td>
-
-</tr>
-</table>
 
 <script>
 /* Stolen from stackoverflow.com/questions/4810841 */
@@ -196,8 +209,8 @@ function setMarkerFromItem(item) {
     markers.clearLayers();
     var latlng = new L.LatLng(item.lat, item.lon);
     markers.addLayer(new L.Marker(latlng));
-    var sw = new L.LatLng(latlng.lat - 0.006, latlng.lng - 0.006);    
-    var ne = new L.LatLng(latlng.lat + 0.006, latlng.lng + 0.006);    
+    var sw = new L.LatLng(latlng.lat - 0.002, latlng.lng - 0.002);
+    var ne = new L.LatLng(latlng.lat + 0.002, latlng.lng + 0.002);
     map.fitBounds(new L.LatLngBounds(sw, ne));
 }
 
@@ -237,7 +250,7 @@ function displaySearchResults(data) {
 
 /*ppend( "<a>" + item.name + " <span class=\"city\">" + item.cities +
                     " </span><span class=\"type\">(" + item.type + ")</span> <span class=\"debug\"> d=" + item.distance + " s=" + item.score + "</span></a>" )
- 
+
                     html += "<li>" + data[i]["display_name"] + "</li>";
                 }
                 */
@@ -257,14 +270,19 @@ $(document).ready(function() {
     });
     var mapnikLayer = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                    maxZoom: 18,
-                   attribution: 'OpenStreetMap'                                                                                                     
+                   attribution: 'OpenStreetMap'
     });
+    var omqLayer = new L.TileLayer(
+                   'http://otile2.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png', {
+                    attribution: 'OpenStreetMap - MapQuest',
+                    });
 
     var currentData = null;
 
-
-    map.addLayer(mapnikLayer);
-    markers.addTo(map); 
+    map.addLayer(omqLayer);
+    control = new L.Control.Layers(  { "OpenMapQuest": omqLayer, "osm.org": mapnikLayer } );
+    map.addControl(control);
+    markers.addTo(map);
 
     $( "#name" ).autocomplete({
         appendTo : '#results',
@@ -272,12 +290,14 @@ $(document).ready(function() {
         source: function(request, response) {
             $.getJSON("complete?q=" + request.term, function(data) {
                 markers.clearLayers();
+                suggestOut = Array();
                 out = Array();
                 for (var match in data.matches) {
                     complexMatch = data.matches[match];
                     out.push(complexMatch);
+                    if (match < 15) suggestOut.push(complexMatch);
                 }
-                response(out);
+                response(suggestOut);
                 currentData = out;
                 if ($("#display_debug").attr('checked')) {
                     $("#debug").html("<pre>" + syntaxHighlight(data.debug)+ "</pre>");
@@ -289,7 +309,7 @@ $(document).ready(function() {
             $(this).autocomplete('widget').css('z-index', 1001);
             return false;
         },
-    
+
         select: function( event, ui ) {
             $( "#name" ).val( ui.item.name );
             idx = 0;
@@ -303,9 +323,9 @@ $(document).ready(function() {
             displaySearchResults(currentData);
             selectDisplayedItem(idx);
 
-            /* 
+            /*
             $("#nominatim").html("Searching ...");
-    
+
             $.getJSON("nominatim?q=" + ui.item.name + "&format=json&contact=clement.stenac@gmail.com", function(data) {
                 var html = "<ul>";
                 for (var i in data) {
@@ -317,7 +337,7 @@ $(document).ready(function() {
             */
             return false;
         }
-                                                                            
+
     }).data("autocomplete")._renderItem = function( ul, item ) {
         return $( "<li></li>" )
             .data( "item.autocomplete", item )
