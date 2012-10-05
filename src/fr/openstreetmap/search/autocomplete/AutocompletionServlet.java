@@ -131,7 +131,7 @@ public class AutocompletionServlet extends HttpServlet{
                 fresults.add(fr);
 
                 // Don't decode too much
-                if (nbRes++ > boostLimit) break;
+                if (++nbRes >= boostLimit) break;
             }
 
             long afterBoost = System.nanoTime();
@@ -164,7 +164,7 @@ public class AutocompletionServlet extends HttpServlet{
                     wr.key("score").value(fr.ae.score);
                     wr.key("prefix").value(StringUtils.join(fr.ae.correctedTokens, " "));
                     wr.endObject();
-                    if (nbRes++ > returnLimit) break;
+                    if (++nbRes >= returnLimit) break;
                 }
                 wr.endArray();
 
