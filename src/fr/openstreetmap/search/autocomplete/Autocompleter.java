@@ -23,7 +23,7 @@ public class Autocompleter {
 	public Autocompleter(ByteBuffer radixBuffer, ByteBuffer dataBuffer) {
 		this.dataBuffer = dataBuffer;
 		this.radixBuffer = radixBuffer;
-		rt.buffer = radixBuffer;
+		rt.buffer = radixBuffer.array();
 		rt.totalSize = radixBuffer.limit();
 		rt.byteArrayMode = true;
 	}

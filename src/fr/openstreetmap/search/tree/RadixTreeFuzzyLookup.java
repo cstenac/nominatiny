@@ -13,7 +13,6 @@ import fr.openstreetmap.search.binary.LongList;
  */
 public class RadixTreeFuzzyLookup {
     private RadixTree tree;
-    private ByteBuffer buffer;
     private int maxDistance;
     private List<ApproximateMatch> matches = new ArrayList<RadixTreeFuzzyLookup.ApproximateMatch>();
 
@@ -27,7 +26,6 @@ public class RadixTreeFuzzyLookup {
 
     public RadixTreeFuzzyLookup(RadixTree tree) {
         this.tree = tree;
-        this.buffer = tree.buffer;
     }
 
     public void match(String entry, int maxDistance) {
@@ -45,21 +43,13 @@ public class RadixTreeFuzzyLookup {
      * Get the list of positions of the subnodes of a node
      */
     private void getChildrenPositions(long childrenListPos, LongList list) {
-        byte[] tmpBuf = new byte[10];
         BinaryUtils.VInt vint = new BinaryUtils.VInt();
-        
-        buffer.position((int)childrenListPos);
-        buffer.get(tmpBuf, 0, Math.min(10, buffer.remaining()));
-        BinaryUtils.readVInt(tmpBuf, 0, vint);
+        BinaryUtils.readVInt(tree.buffer, (int)childrenListPos, vint);
         int nbChildren = (int) vint.value;
         
-        byte[]tmpBuf2 = new byte[10*nbChildren];
-        buffer.position((int)childrenListPos + vint.codeSize);
-        buffer.get(tmpBuf2, 0, Math.min(10 * nbChildren, buffer.remaining()));
-
-        int pos = 0;
+        int pos = (int)childrenListPos + vint.codeSize;
         for (int i = 0; i < nbChildren; i++) {
-            BinaryUtils.readVInt(tmpBuf2, pos, vint);
+            BinaryUtils.readVInt(tree.buffer, pos, vint);
             long childPos = vint.value;
             list.add(childPos);
             pos += vint.codeSize;
@@ -80,12 +70,9 @@ public class RadixTreeFuzzyLookup {
         return s;
     }
 
-    private byte[] lastVIntTmpBuf = new byte[10];
     private BinaryUtils.VInt lastVInt = new BinaryUtils.VInt();
     private void readVInt(long pos) {
-        buffer.position((int)pos);
-        buffer.get(lastVIntTmpBuf, 0, Math.min(10, buffer.remaining()));
-        BinaryUtils.readVInt(lastVIntTmpBuf, 0, lastVInt);
+        BinaryUtils.readVInt(tree.buffer, (int)pos, lastVInt);
     }
 
     private void matchInRadix(long childrenOfRadixListPos, int strPos, String str, int currentDistance,
@@ -183,7 +170,7 @@ public class RadixTreeFuzzyLookup {
     /* Match in a NODE_INTERNAL_VALUE_ONECHAR */
     private void matchRecNIVO(long currentNodePos, int strPos, String str, int currentDistance,
             List<Character> corrected, char substitutionFoundChar, char substitutionExpectedChar) {
-        char c = (char)buffer.getShort((int)currentNodePos + 1);
+        char c = (char)BinaryUtils.decodeLE16(tree.buffer, (int)currentNodePos + 1);
 //        System.out.println(indent(strPos) + " VALUE_ONECHAR " + c);//+ " trying to match=" + str.charAt(strPos));
 
         // Skip value
@@ -302,8 +289,7 @@ public class RadixTreeFuzzyLookup {
         readVInt(currentNodePos + 1);
         int radixLength = (int)lastVInt.value;
         byte[] strBuf = new byte[radixLength];
-        buffer.position((int)currentNodePos + 1  + lastVInt.codeSize);
-        buffer.get(strBuf, 0, (int) lastVInt.value);
+        System.arraycopy(tree.buffer, (int)currentNodePos + 1 + lastVInt.codeSize, strBuf, 0, (int)lastVInt.value);
 
         char[] radixChars = new char[radixLength];
         int radixCharLength = BinaryUtils.decodeUTF8(strBuf, radixChars);
@@ -333,7 +319,7 @@ public class RadixTreeFuzzyLookup {
     /* Match in a NODE_INTERNAL_NOVALUE_ONECHAR */
     private void matchRecNINVO(long currentNodePos, int strPos, String str, int currentDistance,
             List<Character> corrected, char substitutionFoundChar, char substitutionExpectedChar) {
-        char c = (char)buffer.getShort((int)currentNodePos + 1);
+        char c = (char)BinaryUtils.decodeLE16(tree.buffer, (int)currentNodePos + 1);
 //        		System.out.println(indent(strPos ) + " NOVALUE_ONECHAR " + c + " GIVES " + curKey(corrected, c));// + " trying to match=" + str.charAt(strPos));
 
         /* In permutation mode, don't recurse, but increase position */
@@ -414,8 +400,7 @@ public class RadixTreeFuzzyLookup {
         readVInt(currentNodePos + 1);
         int radixLength = (int)lastVInt.value;
         byte[] strBuf = new byte[radixLength];
-        buffer.position((int)currentNodePos + 1  + lastVInt.codeSize);
-        buffer.get(strBuf, 0, (int) lastVInt.value);
+        System.arraycopy(tree.buffer, (int)currentNodePos + 1 + lastVInt.codeSize, strBuf, 0, (int)lastVInt.value);
 
         char[] radixChars = new char[radixLength];
         int radixCharLength = BinaryUtils.decodeUTF8(strBuf, radixChars);
@@ -446,10 +431,7 @@ public class RadixTreeFuzzyLookup {
             return;
         }
 
-
-        buffer.order(ByteOrder.LITTLE_ENDIAN);
-
-        byte nodeType = buffer.get((int)currentNodePos);
+        byte nodeType = tree.buffer[(int)currentNodePos];
 
         if (nodeType == RadixTreeWriter.NODE_INTERNAL_NOVALUE_ONECHAR) {
             matchRecNINVO(currentNodePos, strPos, str, currentDistance,
@@ -468,7 +450,7 @@ public class RadixTreeFuzzyLookup {
                     corrected, substitutionFoundChar, substitutionExpectedChar);
 
         } else if (nodeType == RadixTreeWriter.NODE_FINAL_ONECHAR) {
-            char c = (char)buffer.getShort((int)currentNodePos + 1);
+            char c = (char)BinaryUtils.decodeLE16(tree.buffer, (int)currentNodePos + 1);
 //                        System.out.println(indent(strPos) + " FINAL_ONECHAR " + c);
 
             corrected.add(c);
@@ -486,8 +468,7 @@ public class RadixTreeFuzzyLookup {
             readVInt(currentNodePos + 1);
             int radixLength = (int)lastVInt.value;
             byte[] strBuf = new byte[radixLength];
-            buffer.position((int)currentNodePos + 1  + lastVInt.codeSize);
-            buffer.get(strBuf, 0, (int) lastVInt.value);
+            System.arraycopy(tree.buffer, (int)currentNodePos + 1 + lastVInt.codeSize, strBuf, 0, (int)lastVInt.value);
 
             char[] radixChars = new char[radixLength];
             int radixCharLength = BinaryUtils.decodeUTF8(strBuf, radixChars);
@@ -538,8 +519,7 @@ public class RadixTreeFuzzyLookup {
             readVInt(valuePos);
             int valueSize = (int)lastVInt.value;
             am.byteArrayValue = new byte[valueSize];
-            buffer.position((int)(valuePos + lastVInt.codeSize));
-            buffer.get(am.byteArrayValue, 0, valueSize);
+            System.arraycopy(tree.buffer, (int)valuePos + lastVInt.codeSize, am.byteArrayValue, 0, valueSize);
         } else {
             readVInt(valuePos);
             am.value = lastVInt.value;

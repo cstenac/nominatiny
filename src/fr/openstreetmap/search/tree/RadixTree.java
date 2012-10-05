@@ -7,7 +7,7 @@ import fr.openstreetmap.search.binary.BinaryUtils.VInt;
 
 
 public class RadixTree {
-    public ByteBuffer buffer;
+    public byte[] buffer;
     public long totalSize;
     
     public boolean byteArrayMode;
@@ -20,21 +20,13 @@ public class RadixTree {
     
     long getHeaderNodePos() {
         long headerNodeSizePos = totalSize - 4  ;
-        byte[] tmpBuf =new byte[4];
-        buffer.position((int)headerNodeSizePos);
-        buffer.get(tmpBuf, 0, 4);
-
-        int headerNodeSize = BinaryUtils.decodeLE32(tmpBuf, 0);
+        int headerNodeSize = BinaryUtils.decodeLE32(buffer, (int)headerNodeSizePos);
         return totalSize - 4 - headerNodeSize ;
     }
     
     long getPosAfterValue(long valuePos) {
-        byte[] tmpBuf = new byte[10];
         BinaryUtils.VInt vi = new BinaryUtils.VInt();
-            buffer.position((int)valuePos);
-        
-        buffer.get(tmpBuf, 0, Math.min(10, buffer.remaining()));
-        BinaryUtils.readVInt(tmpBuf, 0, vi);
+        BinaryUtils.readVInt(buffer, (int)valuePos, vi);
         if (byteArrayMode) {
 //        	System.out.println("Read valuelen=" + vi.value + " codeSIze="  + vi.codeSize);
             return valuePos + vi.codeSize + vi.value;
@@ -51,23 +43,13 @@ public class RadixTree {
     }
 
     private void searchChildren(int currentPos, int nextStrPos, String str, Match match) {
-        byte[] tmpBuf =new byte[10];
         BinaryUtils.VInt vint = new BinaryUtils.VInt();
-        //        buffer.position(currentPos + 3);
-        buffer.position(currentPos);
-        buffer.get(tmpBuf, 0, Math.min(10, buffer.remaining()));
-        BinaryUtils.readVInt(tmpBuf, 0, vint);
+        BinaryUtils.readVInt(buffer, currentPos, vint);
         int nbChildren = (int) vint.value;
         currentPos += vint.codeSize;
 
-        System.out.println(indent(nextStrPos) + " children: " + nbChildren);
-
         for (int i = 0; i < nbChildren; i++) {
-            // TODO better share
-            buffer.position(currentPos);
-            buffer.get(tmpBuf, 0, Math.min(10, buffer.remaining()));
-            System.out.println(indent(nextStrPos)  + " readvint at " + currentPos);
-            BinaryUtils.readVInt(tmpBuf, 0, vint);
+            BinaryUtils.readVInt(buffer, currentPos, vint);
             long childPos = vint.value;
             currentPos += vint.codeSize;
             System.out.println(indent(nextStrPos) + " recurse in child " + i +  "/" + nbChildren + " at " + childPos +" (prevvintsize=" + vint.codeSize);
@@ -86,23 +68,19 @@ public class RadixTree {
         return s;
     }
 
-    byte[] lastVIntTmpBuf = new byte[10];
     BinaryUtils.VInt lastVInt = new BinaryUtils.VInt();
 
     private void readVInt(long pos) {
-        buffer.position((int)pos);
-        buffer.get(lastVIntTmpBuf, 0, Math.min(10, buffer.remaining()));
-        BinaryUtils.readVInt(lastVIntTmpBuf, 0, lastVInt);
+        BinaryUtils.readVInt(buffer, (int)pos, lastVInt);
     }
 
     private void getEntryRec(int currentNodePos, int strPos, String str, Match parentMatch) {
         System.out.println(indent(strPos) + " GER " + currentNodePos + " at " + strPos);
-        buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-        byte nodeType = buffer.get(currentNodePos);
+        byte nodeType = buffer[currentNodePos];
 
         if (nodeType == RadixTreeWriter.NODE_INTERNAL_NOVALUE_ONECHAR) {
-            short s = buffer.getShort(currentNodePos + 1);
+            short s = BinaryUtils.decodeLE16(buffer, currentNodePos + 1);
             char c = (char)s;
 
             System.out.println(indent(strPos + 1) + " NOVALUE_ONECHAR " + c);
@@ -131,8 +109,7 @@ public class RadixTree {
             readVInt(currentNodePos + 1);
             int radixLength = (int)lastVInt.value;
             byte[] strBuf = new byte[radixLength];
-            buffer.position(currentNodePos + 1  + lastVInt.codeSize);
-            buffer.get(strBuf, 0, (int) lastVInt.value);
+            System.arraycopy(buffer, currentNodePos + 1 + lastVInt.codeSize, strBuf, 0, (int)lastVInt.value);
 
             String radix = new String(strBuf); // TODO UTF8
             String currentLookup = str.substring(strPos);
@@ -162,7 +139,7 @@ public class RadixTree {
 
 
         } else if (nodeType == RadixTreeWriter.NODE_INTERNAL_VALUE_ONECHAR) {
-            short s = buffer.getShort(currentNodePos + 1);
+            short s =  BinaryUtils.decodeLE16(buffer, currentNodePos + 1);
             char c = (char)s;
 
             System.out.println(indent(strPos + 1) + " VALUE_ONECHAR " + c);
@@ -206,8 +183,7 @@ public class RadixTree {
             readVInt(currentNodePos + 1);
             int radixLength = (int)lastVInt.value;
             byte[] strBuf = new byte[radixLength];
-            buffer.position(currentNodePos + 1  + lastVInt.codeSize);
-            buffer.get(strBuf, 0, (int) lastVInt.value);
+            System.arraycopy(buffer, currentNodePos + 1 + lastVInt.codeSize, strBuf, 0, (int)lastVInt.value);
 
             String radix = new String(strBuf); // TODO UTF8
             String currentLookup = str.substring(strPos);
@@ -261,7 +237,7 @@ public class RadixTree {
 
 
         } else if (nodeType == RadixTreeWriter.NODE_FINAL_ONECHAR) {
-            short s = buffer.getShort(currentNodePos + 1);
+            short s =  BinaryUtils.decodeLE16(buffer, currentNodePos + 1);
             char c = (char)s;
             System.out.println(indent(strPos + 1) + " FINAL_ONECHAR " + c);
             if (str.length() == strPos + 1 && c == str.charAt(strPos) ) {
@@ -287,8 +263,7 @@ public class RadixTree {
             readVInt(currentNodePos + 1);
             int radixLength = (int)lastVInt.value;
             byte[] strBuf = new byte[radixLength];
-            buffer.position(currentNodePos + 1  + lastVInt.codeSize);
-            buffer.get(strBuf, 0, (int) lastVInt.value);
+            System.arraycopy(buffer, currentNodePos + 1 + lastVInt.codeSize, strBuf, 0, (int)lastVInt.value);
 
             String radix = new String(strBuf); // TODO UTF8
             String currentLookup = str.substring(strPos);

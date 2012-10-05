@@ -50,7 +50,7 @@ public class RadixTreeTest {
 
 
         RadixTree rt = new RadixTree();
-        rt.buffer = ByteBuffer.wrap(baos.toByteArray());
+        rt.buffer = baos.toByteArray();
         rt.totalSize = baos.toByteArray().length;
 
         RadixTreeFuzzyLookup rtfl = null;
@@ -101,7 +101,7 @@ public class RadixTreeTest {
 
 
         RadixTree rt = new RadixTree();
-        rt.buffer = ByteBuffer.wrap(baos.toByteArray());
+        rt.buffer = baos.toByteArray();
         rt.totalSize = baos.toByteArray().length;
 
         RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
@@ -132,7 +132,7 @@ public class RadixTreeTest {
 
 
         RadixTree rt = new RadixTree();
-        rt.buffer = ByteBuffer.wrap(baos.toByteArray());
+        rt.buffer = baos.toByteArray();
         rt.totalSize = baos.toByteArray().length;
 
         RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
@@ -154,7 +154,7 @@ public class RadixTreeTest {
         byte[] data = IOUtils.toByteArray(new FileInputStream("/data/homes/stenac/public_html/osm/data/radix"));
         
         RadixTree rt = new RadixTree();
-        rt.buffer = ByteBuffer.wrap(data);
+        rt.buffer = data;
         rt.totalSize = data.length;
         rt.byteArrayMode = true;
 
@@ -193,7 +193,7 @@ public class RadixTreeTest {
         System.out.println("SIZE IS " + baos.toByteArray().length);
 
         RadixTree rt = new RadixTree();
-        rt.buffer = ByteBuffer.wrap(baos.toByteArray());
+        rt.buffer = baos.toByteArray();
         rt.totalSize = baos.toByteArray().length;
 
         assertEquals(1, rt.getEntry("abef"));
@@ -232,7 +232,7 @@ public class RadixTreeTest {
         rtw.flush();
 
         RadixTree rt = new RadixTree();
-        rt.buffer = ByteBuffer.wrap(baos.toByteArray());
+        rt.buffer = baos.toByteArray();
         rt.totalSize = baos.toByteArray().length;
 
         RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);

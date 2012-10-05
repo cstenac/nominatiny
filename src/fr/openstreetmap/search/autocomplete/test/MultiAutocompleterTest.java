@@ -126,8 +126,8 @@ public class MultiAutocompleterTest {
 //        Collections.sort(mwae);
 //      
       for (MultiWordAutocompleterEntry mwae : mwael) {
-          System.out.println(" " + mwae.offset + " - s=" + mwae.score + " d=" + mwae.distance + " correct prefix=" + mwae.correctedTokens);
-          System.out.println("   " + a.getData(mwae.offset));
+//          System.out.println(" " + mwae.offset + " - s=" + mwae.score + " d=" + mwae.distance + " correct prefix=" + mwae.correctedTokens);
+//          System.out.println("   " + a.getData(mwae.offset));
       }
       
 //        RadixTree rt = new RadixTree();

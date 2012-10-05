@@ -135,6 +135,11 @@ public class BinaryUtils {
                 (((int)buffer[offset + 2] & 0xff) << 16) |
                 (((int)buffer[offset + 3] & 0xff) << 24);
     }
+    
+    final public static short decodeLE16(byte[] buffer, int offset){
+        return (short) ((((short)buffer[offset + 0] & 0xff)      ) |
+                (((short)buffer[offset + 1] & 0xff) <<  8));
+    }
 
     final public static long decodeLE64(byte[] buffer, int offset) {
         return (((long)buffer[offset] & 0xff)      ) |
