@@ -26,7 +26,11 @@ public class MultipleWordsAutocompleter {
     public void addFilter(String token, long[] matchingOffsets) {
         filters.put(token, matchingOffsets);
     }
-
+    
+    public void computeAndAddFilter(String token) {
+        addFilter(token, computeFilter(token));
+    }
+    
     public long[] computeFilter(String token) {
         List<AutocompleterEntry> list = completer.getOffsets(token, 0, null);
         long[] ret = new long[list.size()];
@@ -34,6 +38,17 @@ public class MultipleWordsAutocompleter {
         Arrays.sort(ret);
         return ret;
     }
+    
+    public void dumpFiltersInfo() {
+        long totalSize = 0;
+        for (String k : filters.keySet()) {
+            long[] v = filters.get(k);
+            totalSize += v.length;
+            System.out.println(k + "\t\t" + v.length);
+        }
+        System.out.println("TOTAL: "+ totalSize + " (" + (totalSize*8/1024/1024) + " MB)");
+    }
+
 
     public int[] distanceMap = new int[]{0,0,0, 1, 1, 1};
 
@@ -93,7 +108,8 @@ public class MultipleWordsAutocompleter {
             Autocompleter.DebugInfo tokenDI = null;
             if (di != null) tokenDI = new Autocompleter.DebugInfo();
 
-            lists.add(completer.getOffsets(nonFilterTokens.get(i), defaultMaxDistance, tokenDI));
+            int dist = defaultMaxDistance; if (nonFilterTokens.get(i).length() == 3) dist = 0;
+            lists.add(completer.getOffsets(nonFilterTokens.get(i), dist, tokenDI));
 
             if (di != null) {
                 di.tokensDebugInfo.add(tokenDI);
@@ -128,7 +144,7 @@ public class MultipleWordsAutocompleter {
                 for (AutocompleterEntry ae : lists.get(i)) {
                     MultiWordAutocompleterEntry prev =  prevMap.get(ae.offset);
                     if (prev != null) {
-                        prev.score = Math.min(prev.score, ae.score);
+                        prev.score = prev.score + ae.score;
                         prev.distance = Math.max(prev.distance, ae.distance);
                         prev.correctedTokens = (String[])ArrayUtils.add(prev.correctedTokens, ae.correctedPrefix);
                         mapAfter.put(ae.offset, prev);
@@ -161,8 +177,8 @@ public class MultipleWordsAutocompleter {
                     removedOffsets.add(offsetToFilter);
                 }
             }
-            for (long offsetToRemove : removedOffsets) {
-                prevMap.remove(offsetToRemove);
+            for (int i = 0; i < removedOffsets.size(); i++) {
+                prevMap.remove(removedOffsets.get(i));
             }
 
             tokenDI.value = token + " (filter) (removed:" + removedOffsets.size() + ")";

@@ -15,18 +15,22 @@ import fr.openstreetmap.search.tree.RadixTreeFuzzyLookup;
  * This class is not thread safe.
  */
 public class Autocompleter {
-	ByteBuffer radixBuffer;
 	ByteBuffer dataBuffer;
 
 	RadixTree rt = new RadixTree();
 
 	public Autocompleter(ByteBuffer radixBuffer, ByteBuffer dataBuffer) {
 		this.dataBuffer = dataBuffer;
-		this.radixBuffer = radixBuffer;
 		rt.buffer = radixBuffer.array();
 		rt.totalSize = radixBuffer.limit();
 		rt.byteArrayMode = true;
 	}
+	public Autocompleter(byte[] radixBuffer, ByteBuffer dataBuffer) {
+        this.dataBuffer = dataBuffer;
+        rt.buffer = radixBuffer;
+        rt.totalSize = radixBuffer.length;
+        rt.byteArrayMode = true;
+    }
 	
 	public static class DebugInfo {
 	    public String value;
