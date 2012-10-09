@@ -133,10 +133,15 @@ public class MultipleWordsAutocompleter {
             if (prevMap == null) {// First token, always take everything
                 //                System.out.println("FIRST TOKEN, prev list" + lists.get(i).size());
                 for (AutocompleterEntry ae : lists.get(i)) {
-                    MultiWordAutocompleterEntry candidate = new MultiWordAutocompleterEntry();
-                    candidate.offset = ae.offset; candidate.score = ae.score; candidate.distance = ae.distance;
-                    candidate.correctedTokens = new String[]{ae.correctedPrefix};
-                    mapAfter.put(ae.offset, candidate);
+                    if (mapAfter.containsKey(ae.offset)) {
+                        MultiWordAutocompleterEntry candidate = mapAfter.get(ae.offset);
+                        candidate.score += ae.score;
+                    } else {
+                        MultiWordAutocompleterEntry candidate = new MultiWordAutocompleterEntry();
+                        candidate.offset = ae.offset; candidate.score = ae.score; candidate.distance = ae.distance;
+                        candidate.correctedTokens = new String[]{ae.correctedPrefix};
+                        mapAfter.put(ae.offset, candidate);
+                    }
                 }
             } else {
                 //                System.out.println("SECOND TOKEN, prev list" + lists.get(i).size());

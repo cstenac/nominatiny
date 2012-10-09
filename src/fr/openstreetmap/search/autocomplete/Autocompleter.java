@@ -153,6 +153,7 @@ public class Autocompleter {
 
 				AutocompleterEntry ae = new AutocompleterEntry(v, match.distance, s);
 				ae.correctedPrefix = match.key;
+//				System.out.println("**" + v + " " + s + " " + match.key);
 				ret.add(ae);
 			}
 		}
