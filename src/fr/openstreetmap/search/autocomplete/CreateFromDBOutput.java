@@ -7,6 +7,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -140,7 +141,7 @@ public class CreateFromDBOutput {
                 /* All the tokens until now are scored like the original score */
                 int tokensWithBaseScore = tokens.size();
                 
-                long cityScore = 0; // The display form of the city is less important.
+                long cityScore = 1; // The display form of the city is less important.
 
                 String[] cities = chunks[4].replaceAll("\\s+|\\{|\\}", "").split(",");
                 String cityDisplay = "";
@@ -180,6 +181,7 @@ public class CreateFromDBOutput {
                 byte[] value = new OSMAutocompleteUtils().encodeData(isWays, type, name.isEmpty() ? ref : name, 
                         thisCityNames.toArray(new String[0]), lon, lat);
 
+//                System.out.println("ADD " + name + " in " + thisCityNames + " toks=" + StringUtils.join(tokens, "-") + " sc=" + Arrays.toString(scores));
                 builder.addMultiEntry(tokens.toArray(new String[0]), value, scores);
                 // Good test: rue édouard de <-- will put "avenue édouard" in "rueil" first.
                 
@@ -188,7 +190,7 @@ public class CreateFromDBOutput {
                 if (nlines % 5000 == 0) {
                     System.out.println("Parsed " +  nlines + (isWays ? " ways" : " nodes") + ", id=" + id + " name=" + name);
                 }
-//                if (nlines > 50000) break;
+                if (nlines > 50000) break;
             } catch (Exception e) {
                 logger.error("Failed to parse *********", e);//\n" + line, e);
 //                throw e;
