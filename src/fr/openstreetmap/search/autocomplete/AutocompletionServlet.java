@@ -125,7 +125,7 @@ public class AutocompletionServlet extends HttpServlet{
                 for (String stop : stopped) {
                     if (fr.decodedData.name.toLowerCase().contains(stop)) {
 //                        			            System.out.println("  Boosting " + fr.decodedData);
-                        fr.ae.score += 1000;
+                        fr.ae.score += 10000;
                     }
                 }
                 fresults.add(fr);

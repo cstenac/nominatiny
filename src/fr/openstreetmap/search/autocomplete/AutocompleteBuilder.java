@@ -14,8 +14,11 @@ import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -39,6 +42,26 @@ public class AutocompleteBuilder {
     BinaryStreamEncoder bse;
 
     Writer temporaryFileWriter;
+    
+    public static class ScoredToken implements Comparable<ScoredToken>{
+        public ScoredToken(String token, long score) {
+            this.score = score; this.token = token;
+        }
+        String token;
+        long score;
+        @Override
+        public int compareTo(ScoredToken arg0) {
+            int tDiff = this.token.compareTo(arg0.token);
+            if (tDiff != 0) return tDiff;
+            if (score > arg0.score) return 1;
+            if (score < arg0.score) return -1;
+            return 0;
+        }
+        
+        public String toString() {
+            return token + "(" + score + ")";
+        }
+    }
 
     public AutocompleteBuilder(File temporaryFileUnsorted, File temporaryFileSorted, File outputFile,File outputDataFile) throws IOException {
         this.temporaryFileSorted  = temporaryFileSorted;
@@ -74,6 +97,38 @@ public class AutocompleteBuilder {
         for (int eidx = 0; eidx < entries.length; eidx++) {
             for (int i = minEntrySize; i <= entries[eidx].length(); i++) {
                 temporaryFileWriter.write(entries[eidx].substring(0, i)+ "\t" + offset + "\t" + scores[eidx] + "\n");
+            }
+        }
+    }
+    
+    Map<String, ScoredToken> dedupMap = new HashMap<String, AutocompleteBuilder.ScoredToken>();
+
+    
+    public void addEntry(List<ScoredToken> scoredTokens, byte[] data, boolean dedup) throws IOException {
+        long offset = bse.getWritten();
+        bse.writeVInt(data.length);
+        bse.writeBytes(data);
+        
+        if (dedup) {
+            dedupMap.clear();
+            for (ScoredToken sc : scoredTokens) {
+                ScoredToken already = dedupMap.get(sc.token);
+                if (already ==null) {
+                    dedupMap.put(sc.token, sc);
+                } else if (already.score < sc.score) {
+                    // Better score, replace
+                    dedupMap.put(sc.token, sc);
+                } else {
+//                    System.out.println("Eliminate dup on " + sc  + " from "+ StringUtils.join(scoredTokens, "-"));
+                }
+            }
+            scoredTokens.clear();
+            scoredTokens.addAll(dedupMap.values());
+        }
+        
+        for (ScoredToken sc : scoredTokens) {
+            for (int i = minEntrySize; i <= sc.token.length(); i++) {
+                temporaryFileWriter.write(sc.token.substring(0, i)+ "\t" + offset + "\t" + sc.score + "\n");
             }
         }
     }

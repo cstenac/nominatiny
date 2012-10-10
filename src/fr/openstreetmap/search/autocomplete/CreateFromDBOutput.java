@@ -3,9 +3,13 @@ package fr.openstreetmap.search.autocomplete;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -21,6 +25,7 @@ import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
 
+import fr.openstreetmap.search.autocomplete.AutocompleteBuilder.ScoredToken;
 import fr.openstreetmap.search.text.StringNormalizer;
 
 /**
@@ -44,6 +49,7 @@ public class CreateFromDBOutput {
     Map<Long, CityDesc> cityNames =new HashMap<Long, CityDesc>();
     AutocompleteBuilder builder;
     File outDir;
+    Writer rawOut;
 
     public static Set<String> definitelyStopWords = new HashSet<String>();
     static {
@@ -59,42 +65,51 @@ public class CreateFromDBOutput {
                 new File(outDir, "tmp.sorted"), new File(outDir, "radix"), new File(outDir, "data"));
         builder.nbValues = 600000;
         this.outDir = outDir;
+        rawOut = new OutputStreamWriter(new FileOutputStream(new File(outDir, "rawout")), "utf8");
     }
 
-    public long scoreWay(List<String> nameTokens, String type, long biggestPop) {
+    public long scoreWay(List<ScoredToken> nameTokens, String type, long biggestPop) {
         long baseScore = 0;
         if (type.equals("residential")){
-            if (nameTokens.contains("avenue") || nameTokens.contains("boulevard")) {
-                baseScore = 1000;
-            } else {
-                baseScore= 800;
+            baseScore = 8000;
+            for (ScoredToken sc : nameTokens) {
+                if (sc.token.equals("avenue") || sc.token.equals("boulevard")) {
+                    baseScore = 10000;
+                }
             }
         } else if (type.equals("highway")) {
-            baseScore= 800;
+            baseScore= 8000;
         } else {
-            baseScore = 600;
+            baseScore = 6000;
         }
-        /* Max boost for a 10M city: 100 */
-        baseScore += (biggestPop * 100) / (10 * 1000 * 1000);
+        /* Max boost for a 10M city: 1999 */
+        baseScore += (biggestPop * 1999) / (10 * 1000 * 1000);
 
         return baseScore;
     }
 
-    public long scoreNode(List<String> nameTokens, String type, long biggestPop) {
+    public long scoreNode(List<ScoredToken> nameTokens, String type, long biggestPop) {
         long baseScore = 0;
         if (type.equals("place")){
-            baseScore = 2000;
+            baseScore = 20000;
         } else {
-            baseScore = 500;
+            baseScore = 5000;
         }
-        /* Max boost for a 10M city: 100 */
-        baseScore += (biggestPop * 100) / (10 * 1000 * 1000);
+        /* Max boost for a 10M city: 14999 */
+        baseScore += (biggestPop * 14999) / (10 * 1000 * 1000);
 
         return baseScore;
     }
 
+    public static void tokenize(String text, List<ScoredToken> tokens, long score) {
+        StringTokenizer st = new StringTokenizer(text, "\t\n\r (),-'[]/");
+        while (st.hasMoreTokens()) {
+            String token = StringNormalizer.normalize(st.nextToken()).toLowerCase();
+            tokens.add(new ScoredToken(token, score));
+        }
+    }
     public static void tokenize(String text, List<String> tokens) {
-        StringTokenizer st = new StringTokenizer(text, "\t\n\r (),-'[]");
+        StringTokenizer st = new StringTokenizer(text, "\t\n\r (),-'[]/");
         while (st.hasMoreTokens()) {
             String token = StringNormalizer.normalize(st.nextToken()).toLowerCase();
             tokens.add(token);
@@ -103,11 +118,12 @@ public class CreateFromDBOutput {
 
     // Input file : id | name | ref | type | cities | centroid
     public void parseNamedWaysOrNodes(String namedWaysFile, boolean isWays) throws Exception {
-        List<String> tokens = new ArrayList<String>();
+        List<ScoredToken> tokens = new ArrayList<ScoredToken>();
 
         File f = new File(namedWaysFile);
         BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f), "utf8"));
         int nlines = 0;
+        long lastId = 0;
         while (true) {
             String line = br.readLine();
             if (line == null) break;
@@ -121,6 +137,7 @@ public class CreateFromDBOutput {
                 String c0 = chunks[0].replace(" ", "");
                 if (!StringUtils.isNumeric(c0)) break;
                 long id = Long.parseLong(c0);
+                lastId = id;
                 //
                 //                System.out.println("*****");
                 //                System.out.println(line);
@@ -153,26 +170,30 @@ public class CreateFromDBOutput {
                 long biggestPop = 0;
                 for (CityDesc cd : cityDescs) biggestPop = Math.max(cd.pop, biggestPop);
 
+                long score = isWays ? scoreWay(tokens, type, biggestPop) : scoreNode(tokens, type, biggestPop);
+                if (name.equals("Le Bourg")) {
+                    System.out.println("Le Bourg score= " + score + " type=" + type + " bp " + biggestPop);
+                }
+
 
                 if (!name.isEmpty()) {
-                    tokenize(name, tokens);
+                    tokenize(name, tokens, score);
                 }
                 if (!ref.isEmpty()) {
-                    tokenize(ref, tokens);
+                    tokenize(ref, tokens, score);
                 }
 
                 /* Some words that we *know* will be stop words, so let's not waste time going through them to clip
                  * them later
                  */
-                ListIterator<String> lit = tokens.listIterator();
+                ListIterator<ScoredToken> lit = tokens.listIterator();
                 while (lit.hasNext()) {
-                    String t = lit.next();
-                    if (definitelyStopWords.contains(t)) { 
+                    ScoredToken t = lit.next();
+                    if (definitelyStopWords.contains(t.token)) { 
                         lit.remove();
                     }
                 }
 
-                long score = isWays ? scoreWay(tokens, type, biggestPop) : scoreNode(tokens, type, biggestPop);
                 /* All the tokens until now are scored like the original score */
                 int tokensWithBaseScore = tokens.size();
 
@@ -181,23 +202,31 @@ public class CreateFromDBOutput {
                 String cityDisplay = "";
                 List<String> thisCityNames = new ArrayList<String>(); 
                 for (CityDesc cityDesc : cityDescs) {
+                    // We are scoring the city itself!  Boost the "name" tokens
+                    if (!isWays) {
+                        if (cityDesc.name.equals(name)) {
+                            for (ScoredToken sc : tokens) sc.score += 10000;
+                        }
+                    }
+
                     thisCityNames.add(cityDesc.name);
-                    tokenize(cityDesc.name, tokens);
+                    tokenize(cityDesc.name, tokens, cityScore);
                     if (cityDisplay.length() > 0) cityDisplay += ", ";
                     cityDisplay += cityDesc.name;
 
-                    // We are scoring the city itself!  Boost !
-                    if (cityDesc.name.equals(name)) {
-                        score += 1000;
-                    }
+
+                }
+                
+                if (name.equals("Le Bourg")) {
+                    System.out.println("Le Bourg AFTER BOOST tokens=" + StringUtils.join(tokens, "-"));
                 }
 
                 // Beware, don't use type as a token. It's useless, it will be clipped anyway !
                 // tokens.add(type);
 
-                long[] scores = new long[tokens.size()];
-                for (int i = 0; i < tokensWithBaseScore; i++) scores[i] = score;
-                for (int i = tokensWithBaseScore; i < tokens.size(); i++) scores[i] = cityScore;
+                //                long[] scores = new long[tokens.size()];
+                //                for (int i = 0; i < tokensWithBaseScore; i++) scores[i] = score;
+                //                for (int i = tokensWithBaseScore; i < tokens.size(); i++) scores[i] = cityScore;
 
                 /* Compute the display value */
                 //                JSONObject obj = new JSONObject();
@@ -211,22 +240,19 @@ public class CreateFromDBOutput {
                         thisCityNames.toArray(new String[0]), lon, lat);
 
                 //                System.out.println("ADD " + name + " in " + thisCityNames + " toks=" + StringUtils.join(tokens, "-") + " sc=" + Arrays.toString(scores));
-                builder.addMultiEntry(tokens.toArray(new String[0]), value, scores);
+                builder.addEntry(tokens, value, true);
                 // Good test: rue édouard de <-- will put "avenue édouard" in "rueil" first.
+                
+                rawOut.write(name.isEmpty() ? ref : name + "\t" + id + "\t" + type + "\t" + StringUtils.join(tokens, "-") + "\tpop:" + biggestPop + "\n");
 
                 // TODO: Boost correct-length matches ?
 
-                if (nlines % 5000 == 0) {
+                if (nlines % 50000 == 0) {
                     System.out.println("Parsed " +  nlines + (isWays ? " ways" : " nodes") + ", id=" + id + " name=" + name);
                 }
-                
-                if (name.contains("ousseaux")) {
-                    System.out.println("ADD " + name + " in " + thisCityNames + " toks=" + StringUtils.join(tokens, "-") + " sc=" + Arrays.toString(scores));
-                    
-                }
-//                if (nlines > 50000) break;
+                //                if (nlines > 50000) break;
             } catch (Exception e) {
-                logger.error("Failed to parse *********");//, e);//\n" + line, e);
+                logger.error("Failed to parse, last known id: " + lastId);//, e);//\n" + line, e);
                 //                throw e;
             }
         }
@@ -271,6 +297,7 @@ public class CreateFromDBOutput {
 
     public void flush() throws Exception {
         builder.flush();
+        rawOut.close();
 
         FileWriter fwr = new FileWriter(outDir + "/stopwords");
         for (String s : builder.clippedWords) {
@@ -290,8 +317,8 @@ public class CreateFromDBOutput {
 
         CreateFromDBOutput instance = new CreateFromDBOutput(new File(outDir));
         instance.parseCityList(inCities);
-        instance.parseNamedWaysOrNodes(inWays, true);
         instance.parseNamedWaysOrNodes(inNodes, false);
+        instance.parseNamedWaysOrNodes(inWays, true);
 
         instance.flush();
     }
