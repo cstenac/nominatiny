@@ -9,9 +9,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -23,7 +21,6 @@ import java.util.StringTokenizer;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
-import org.json.JSONObject;
 
 import fr.openstreetmap.search.autocomplete.AutocompleteBuilder.ScoredToken;
 import fr.openstreetmap.search.text.StringNormalizer;
@@ -53,11 +50,7 @@ public class CreateFromDBOutput {
 
     public static Set<String> definitelyStopWords = new HashSet<String>();
     static {
-        //        definitelyStopWords.add("rue");
-        //        definitelyStopWords.add("avenue");
-        //        definitelyStopWords.add("route");
-        //        definitelyStopWords.add("boulevard");
-        //        definitelyStopWords.add("chemin");
+        // No definitely stop words yet :)
     }
 
     public CreateFromDBOutput(File outDir) throws IOException {
@@ -138,20 +131,11 @@ public class CreateFromDBOutput {
                 if (!StringUtils.isNumeric(c0)) break;
                 long id = Long.parseLong(c0);
                 lastId = id;
-                //
-                //                System.out.println("*****");
-                //                System.out.println(line);
-                //                System.out.println(chunks[1]);
-                //                System.out.println(chunks[2]);
-                //                System.out.println(chunks[3]);
-                //                System.out.println(chunks[4]);
-                //                
 
                 String name = chunks[1].replaceAll("^\\s+|\\s+$", "");
                 String ref = chunks[2].replaceAll("^\\s+", "");
                 String type = StringUtils.replace(chunks[3], " " ,"");
                 String[] centroidCoords =  chunks[5].replaceAll(" POINT|\\(|\\)", "").split(" ");
-                //                System.out.println("*CHUNK 5 IS " + chunks[5]);
                 double lon = Double.parseDouble(centroidCoords[0]);
                 double lat = Double.parseDouble(centroidCoords[1]);
 
@@ -175,7 +159,6 @@ public class CreateFromDBOutput {
                     System.out.println("Le Bourg score= " + score + " type=" + type + " bp " + biggestPop);
                 }
 
-
                 if (!name.isEmpty()) {
                     tokenize(name, tokens, score);
                 }
@@ -194,11 +177,7 @@ public class CreateFromDBOutput {
                     }
                 }
 
-                /* All the tokens until now are scored like the original score */
-                int tokensWithBaseScore = tokens.size();
-
                 long cityScore = 1; // The display form of the city is less important.
-
                 String cityDisplay = "";
                 List<String> thisCityNames = new ArrayList<String>(); 
                 for (CityDesc cityDesc : cityDescs) {
@@ -213,36 +192,15 @@ public class CreateFromDBOutput {
                     tokenize(cityDesc.name, tokens, cityScore);
                     if (cityDisplay.length() > 0) cityDisplay += ", ";
                     cityDisplay += cityDesc.name;
-
-
                 }
                 
-                if (name.equals("Le Bourg")) {
-                    System.out.println("Le Bourg AFTER BOOST tokens=" + StringUtils.join(tokens, "-"));
-                }
-
-                // Beware, don't use type as a token. It's useless, it will be clipped anyway !
-                // tokens.add(type);
-
-                //                long[] scores = new long[tokens.size()];
-                //                for (int i = 0; i < tokensWithBaseScore; i++) scores[i] = score;
-                //                for (int i = tokensWithBaseScore; i < tokens.size(); i++) scores[i] = cityScore;
-
                 /* Compute the display value */
-                //                JSONObject obj = new JSONObject();
-                //                obj.put("name", name.isEmpty() ? ref : name);
-                //                obj.put("city", cityDisplay);
-                //                obj.put("type", type);
-                //                obj.put("lat", lat);
-                //                obj.put("lon", lon);
-                //                String value = obj.toString();
                 byte[] value = new OSMAutocompleteUtils().encodeData(isWays, type, name.isEmpty() ? ref : name, 
                         thisCityNames.toArray(new String[0]), lon, lat);
 
-                //                System.out.println("ADD " + name + " in " + thisCityNames + " toks=" + StringUtils.join(tokens, "-") + " sc=" + Arrays.toString(scores));
                 builder.addEntry(tokens, value, true);
-                // Good test: rue édouard de <-- will put "avenue édouard" in "rueil" first.
-                
+
+                // Debugging output
                 rawOut.write(name.isEmpty() ? ref : name + "\t" + id + "\t" + type + "\t" + StringUtils.join(tokens, "-") + "\tpop:" + biggestPop + "\n");
 
                 // TODO: Boost correct-length matches ?
