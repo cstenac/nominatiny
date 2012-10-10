@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
+import java.util.StringTokenizer;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -123,9 +124,18 @@ public class AutocompletionServlet extends HttpServlet{
                 fr.decodedData = utils.decodeData(fr.encodedData);
 
                 for (String stop : stopped) {
-                    if (fr.decodedData.name.toLowerCase().contains(stop)) {
-//                        			            System.out.println("  Boosting " + fr.decodedData);
-                        fr.ae.score += 10000;
+                    String decodedName = fr.decodedData.name.toLowerCase();
+                    StringTokenizer st = CreateFromDBOutput.getTokenizer(decodedName);
+                    while (st.hasMoreTokens()) {
+                        String nt = st.nextToken();
+                        if (nt.equals(stop)) {
+                            // The stop word exists as a separate token, best boost
+                            fr.ae.score += 10000;
+                        } else if (nt.startsWith(stop)){
+                            // The stop word is the beginning of a token, also boost
+                            fr.ae.score += 1000;
+                        }
+                            
                     }
                 }
                 fresults.add(fr);

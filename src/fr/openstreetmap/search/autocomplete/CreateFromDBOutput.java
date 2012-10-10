@@ -93,16 +93,20 @@ public class CreateFromDBOutput {
 
         return baseScore;
     }
+    
+    public static StringTokenizer getTokenizer(String text) {
+        return  new StringTokenizer(text, "\t\n\r (),-'[]/");
+    }
 
     public static void tokenize(String text, List<ScoredToken> tokens, long score) {
-        StringTokenizer st = new StringTokenizer(text, "\t\n\r (),-'[]/");
+        StringTokenizer st = getTokenizer(text);
         while (st.hasMoreTokens()) {
             String token = StringNormalizer.normalize(st.nextToken()).toLowerCase();
             tokens.add(new ScoredToken(token, score));
         }
     }
     public static void tokenize(String text, List<String> tokens) {
-        StringTokenizer st = new StringTokenizer(text, "\t\n\r (),-'[]/");
+        StringTokenizer st = getTokenizer(text);
         while (st.hasMoreTokens()) {
             String token = StringNormalizer.normalize(st.nextToken()).toLowerCase();
             tokens.add(token);
