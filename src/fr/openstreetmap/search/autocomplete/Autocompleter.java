@@ -131,7 +131,9 @@ public class Autocompleter {
 			
 			// In autocompletion mode, we don't care about *longer* terms than us, because they'll always have a worse distance,
 			// while carrying the same values than us (and actually, carrying less)
-			if (match.key.length() > query.length() && rtfl.getMatches().size() > 1) continue;
+			// BUT only if we are a prefix of them (ie, no autocorrection on our body)
+			if (match.key.length() > query.length() && rtfl.getMatches().size() > 1
+			    && match.key.startsWith(query)) continue;
 			
 //			System.out.println("Value " + match.byteArrayValue.length);
 			int pos = 0;
@@ -139,7 +141,7 @@ public class Autocompleter {
 //			System.out.println("Found " + vint.value + " offsets");
 			pos = vint.codeSize;
 			int nbVals = (int)vint.value;
-//			System.out.println("*** Approx match:" + rtfl.matches.get(i).key + " d=" + rtfl.matches.get(i).distance + " nvals=" + nbVals);
+//			System.out.println("*** Approx match:" + rtfl.getMatches().get(i).key + " d=" + rtfl.getMatches().get(i).distance + " nvals=" + nbVals);
 
 			for (int j = 0; j < nbVals; j++) {
 				BinaryUtils.readVInt(match.byteArrayValue, pos, vint);

@@ -13,6 +13,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -219,6 +220,7 @@ public class RadixTreeTest {
     }
 
     @Test
+    @Ignore
     public void distanceOnIncomplete( ) throws IOException{
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -259,7 +261,33 @@ public class RadixTreeTest {
 
     }
 
-    
+    @Test
+    public void missingLetter( ) throws IOException{
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        RadixTreeWriter rtw = new RadixTreeWriter(baos);
+
+        rtw.addEntry("mar", 3);
+        rtw.addEntry("mart", 4);
+        rtw.addEntry("marti", 5);
+        rtw.addEntry("martig", 6);
+        rtw.addEntry("martigu", 7);
+        rtw.addEntry("martigue", 7);
+        rtw.addEntry("martigues", 7);
+        rtw.flush();
+
+        RadixTree rt = new RadixTree();
+        rt.buffer = FileUtils.readFileToByteArray(new File("/data/stenac/osm/search/data/out/radix"));// baos.toByteArray();
+        rt.byteArrayMode = true;
+        rt.totalSize = rt.buffer.length;
+
+        RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
+        rtfl.match("martgues", 1);
+        for (ApproximateMatch am : rtfl.getMatches()) {
+            System.out.println("" + am.key + " - " + am.distance);
+        }
+
+    }
     
     /*
     @Test
