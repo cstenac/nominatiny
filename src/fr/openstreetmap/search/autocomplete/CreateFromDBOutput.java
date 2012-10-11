@@ -159,9 +159,6 @@ public class CreateFromDBOutput {
                 for (CityDesc cd : cityDescs) biggestPop = Math.max(cd.pop, biggestPop);
 
                 long score = isWays ? scoreWay(tokens, type, biggestPop) : scoreNode(tokens, type, biggestPop);
-                if (name.equals("Le Bourg")) {
-                    System.out.println("Le Bourg score= " + score + " type=" + type + " bp " + biggestPop);
-                }
 
                 if (!name.isEmpty()) {
                     tokenize(name, tokens, score);
