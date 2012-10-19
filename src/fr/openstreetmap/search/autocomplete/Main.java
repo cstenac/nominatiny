@@ -2,13 +2,11 @@ package fr.openstreetmap.search.autocomplete;
 
 import java.io.File;
 import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -33,10 +31,9 @@ public class Main {
         FileChannel dataChannel = new RandomAccessFile(new File(dataFile), "r").getChannel();
         MappedByteBuffer dataBuffer = dataChannel.map(MapMode.READ_ONLY, 0, dataChannel.size());
 
-        Autocompleter a = new Autocompleter(radixBuffer, dataBuffer);
-
         MultipleWordsAutocompleter mwa = new MultipleWordsAutocompleter();
-        mwa.completer = a;
+        mwa.radixBuffer = radixBuffer;
+        mwa.dataBuffer = dataBuffer;
 
         /* Preload a bit */
         mwa.autocomplete(new String[]{"jol", "cur"}, 1, null);

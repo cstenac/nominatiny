@@ -95,7 +95,7 @@ public class OSMAutocompleteUtils {
         return baos.toByteArray();
     }
     
-    public String jsonLegacyEncodedData(boolean isWay, String type, String name, String[] cityNames, double lon, double lat) throws JSONException {
+    public static String jsonLegacyEncodedData(boolean isWay, String type, String name, String[] cityNames, double lon, double lat) throws JSONException {
         JSONObject obj = new JSONObject();
         obj.put("name", name);
         obj.put("city", StringUtils.join(cityNames, ","));
@@ -106,7 +106,7 @@ public class OSMAutocompleteUtils {
 
     }
     
-    public MatchData decodeData(byte[] encoded) throws IOException {
+    public static MatchData decodeData(byte[] encoded) throws IOException {
         MatchData ret = new MatchData();
         MutableInt mi = new MutableInt();
         VInt vi = new VInt();
