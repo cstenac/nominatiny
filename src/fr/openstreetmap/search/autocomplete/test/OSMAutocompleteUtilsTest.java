@@ -1,7 +1,8 @@
-package fr.openstreetmap.search.autocomplete;
+package fr.openstreetmap.search.autocomplete.test;
 
 import org.junit.Test;
 
+import fr.openstreetmap.search.autocomplete.OSMAutocompleteUtils;
 import fr.openstreetmap.search.autocomplete.OSMAutocompleteUtils.MatchData;
 
 public class OSMAutocompleteUtilsTest {
@@ -10,12 +11,12 @@ public class OSMAutocompleteUtilsTest {
            OSMAutocompleteUtils u = new OSMAutocompleteUtils();
            
            System.out.println(
-                   u.jsonLegacyEncodedData(true, "highway", "rue des pouets", new String[]{"Boulogne", "Paris"}, 42.1, -44.7).getBytes("utf8").length);
+                   OSMAutocompleteUtils.jsonLegacyEncodedData(true, "highway", "rue des pouets", new String[]{"Boulogne", "Paris"}, 42.1, -44.7).getBytes("utf8").length);
            
            byte[] data = u.encodeData(true, "highway", "rue des pouets", new String[]{"Boulogne", "Paris"}, 42.1, -44.7, 42);
            
            System.out.println(data.length);
-           MatchData md = u.decodeData(data);
+           MatchData md = OSMAutocompleteUtils.decodeData(data);
            
            System.out.println(md.isWay);
            System.out.println(md.type);

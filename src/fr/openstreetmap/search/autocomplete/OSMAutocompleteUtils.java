@@ -2,8 +2,6 @@ package fr.openstreetmap.search.autocomplete;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.mutable.MutableInt;
@@ -63,13 +61,13 @@ public class OSMAutocompleteUtils {
     }
     
     public static class MatchData {
-        boolean isWay;
-        String type;
-        String name;
-        String[] cityNames;
-        double lon;
-        double lat;
-        long osmId;
+        public boolean isWay;
+        public String type;
+        public String name;
+        public String[] cityNames;
+        public double lon;
+        public double lat;
+        public long osmId;
     }
 
     

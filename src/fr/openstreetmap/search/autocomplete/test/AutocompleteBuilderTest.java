@@ -18,7 +18,7 @@ public class AutocompleteBuilderTest {
         
         
         BufferedReader br = new BufferedReader(new FileReader(new File("/usr/share/dict/american-english")));
-        int lno = 0;
+//        int lno = 0;
         while (true) {
             String s = br.readLine();
             if (s == null) break;

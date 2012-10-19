@@ -1,5 +1,5 @@
 package fr.openstreetmap.search.tree;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -7,11 +7,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileChannel.MapMode;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;

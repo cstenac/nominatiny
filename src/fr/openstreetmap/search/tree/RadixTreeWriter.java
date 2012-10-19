@@ -1,8 +1,6 @@
 package fr.openstreetmap.search.tree;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -282,7 +280,6 @@ public class RadixTreeWriter {
         previousEntry = entry;
     }
 
-    private OutputStream os;
     private BinaryStreamEncoder encoder;
     private List<RadixTreeNode> stack = new ArrayList<RadixTreeNode>(); 
     private String previousEntry;

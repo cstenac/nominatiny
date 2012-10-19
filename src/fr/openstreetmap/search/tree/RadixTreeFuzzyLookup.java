@@ -1,6 +1,4 @@
 package fr.openstreetmap.search.tree;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -504,9 +502,9 @@ public class RadixTreeFuzzyLookup {
         }
         return s;
     }
-    private String curKey(List<Character> corrected, char additional) {
-        return curKey(corrected) + additional;
-    }
+//    private String curKey(List<Character> corrected, char additional) {
+//        return curKey(corrected) + additional;
+//    }
 
     private void registerMatch(long valuePos, int distance, List<Character> corrected) {
         if (distance > maxDistance) {

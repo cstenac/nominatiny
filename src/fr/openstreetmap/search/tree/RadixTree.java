@@ -1,9 +1,5 @@
 package fr.openstreetmap.search.tree;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-
 import fr.openstreetmap.search.binary.BinaryUtils;
-import fr.openstreetmap.search.binary.BinaryUtils.VInt;
 
 
 public class RadixTree {
