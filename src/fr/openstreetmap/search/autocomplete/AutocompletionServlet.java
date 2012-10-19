@@ -161,6 +161,7 @@ public class AutocompletionServlet extends HttpServlet{
 
         long afterSort= System.nanoTime();
 
+        resp.setCharacterEncoding("utf8");
         resp.setContentType("application/json");
 
         BufferedWriter bwr = new BufferedWriter(resp.getWriter());
