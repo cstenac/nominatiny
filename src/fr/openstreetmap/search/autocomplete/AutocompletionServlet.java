@@ -38,6 +38,7 @@ public class AutocompletionServlet extends HttpServlet{
             if (line == null) break;
             stopWords.add(line.replace("\n", ""));
         }
+        stopWords.add("france");
     }
 
     static class FinalResult {
@@ -169,6 +170,8 @@ public class AutocompletionServlet extends HttpServlet{
                     wr.key("lat").value(fr.decodedData.lat);
                     wr.key("lon").value(fr.decodedData.lon);
                     wr.key("type").value(fr.decodedData.type);
+                    wr.key("osmType").value(fr.decodedData.isWay ? "way" : "node");
+                    wr.key("osmId").value(fr.decodedData.osmId);
                     wr.key("cities").value(StringUtils.join(fr.decodedData.cityNames, ", "));
                     wr.key("distance").value(fr.ae.distance);
                     wr.key("score").value(fr.ae.score);

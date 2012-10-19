@@ -69,6 +69,7 @@ public class OSMAutocompleteUtils {
         String[] cityNames;
         double lon;
         double lat;
+        long osmId;
     }
 
     
@@ -76,7 +77,7 @@ public class OSMAutocompleteUtils {
         bse = new BinaryStreamEncoder(baos);
     }
     
-    public byte[] encodeData(boolean isWay, String type, String name, String[] cityNames, double lon, double lat) throws IOException {
+    public byte[] encodeData(boolean isWay, String type, String name, String[] cityNames, double lon, double lat, long osmId) throws IOException {
         baos.reset();
         bse.writeByte(isWay ? TYPE_WAY : TYPE_NODE);
         bse.writeByte(typeId(type));
@@ -88,6 +89,8 @@ public class OSMAutocompleteUtils {
         }
         bse.writeLE64(Double.doubleToLongBits(lon));
         bse.writeLE64(Double.doubleToLongBits(lat));
+        
+        bse.writeLE64(osmId);
         
         return baos.toByteArray();
     }
@@ -124,7 +127,8 @@ public class OSMAutocompleteUtils {
         }
         ret.lon = Double.longBitsToDouble(BinaryUtils.decodeLE64(encoded, mi.intValue()));
         ret.lat = Double.longBitsToDouble(BinaryUtils.decodeLE64(encoded, mi.intValue() + 8));
-
+        
+        ret.osmId = BinaryUtils.decodeLE64(encoded, mi.intValue() + 16);
         return ret;
      }
 }

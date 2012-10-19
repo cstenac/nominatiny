@@ -12,7 +12,7 @@ public class OSMAutocompleteUtilsTest {
            System.out.println(
                    u.jsonLegacyEncodedData(true, "highway", "rue des pouets", new String[]{"Boulogne", "Paris"}, 42.1, -44.7).getBytes("utf8").length);
            
-           byte[] data = u.encodeData(true, "highway", "rue des pouets", new String[]{"Boulogne", "Paris"}, 42.1, -44.7);
+           byte[] data = u.encodeData(true, "highway", "rue des pouets", new String[]{"Boulogne", "Paris"}, 42.1, -44.7, 42);
            
            System.out.println(data.length);
            MatchData md = u.decodeData(data);

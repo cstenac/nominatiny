@@ -197,7 +197,7 @@ public class CreateFromDBOutput {
                 
                 /* Compute the display value */
                 byte[] value = new OSMAutocompleteUtils().encodeData(isWays, type, name.isEmpty() ? ref : name, 
-                        thisCityNames.toArray(new String[0]), lon, lat);
+                        thisCityNames.toArray(new String[0]), lon, lat, id);
 
                 builder.addEntry(tokens, value, true);
 
