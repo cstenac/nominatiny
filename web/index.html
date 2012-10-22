@@ -3,6 +3,7 @@
 <head>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.1/jquery.min.js"></script>
  <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.23/jquery-ui.min.js"></script>
+ <script src="jquery.lightbox_me.js"></script>
 
 <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.4/leaflet.css" />
 <script src="http://cdn.leafletjs.com/leaflet-0.4/leaflet.js"></script>
@@ -14,7 +15,39 @@ body {
     padding: 0px;
     margin: 0px;
     max-height:100%;
-    overflow: hidden;
+//    overflow: hidden;
+}
+
+#about {
+        -moz-border-radius: 6px;
+        -webkit-border-radius: 6px;
+        -webkit-box-shadow: rgba(0, 0, 0, .6) 0px 2px 12px;
+        -moz-box-shadow: rgba(0, 0, 0, .6) 0px 2px 12px;;
+        padding: 14px 22px;
+        padding-right:4em;
+        width: 500px;
+        position: relative;
+        display: none;
+        border: 1px solid #536376;
+        background-color: #fff;
+}
+#about_button_div {
+    position:absolute;
+    right: 20px;
+}
+
+#close_x {
+        overflow: hidden;
+        line-height: 2em;
+        display: block;
+        position: bsolute;
+        top: 5px;
+        right: 5px;
+        background: url(close-button.gif) no-repeat;
+        color: transparent;
+}
+
+
 }
 
 #container {
@@ -32,50 +65,53 @@ body {
 
 #search_widget {
     position:absolute;
-    top: 50%;
-    margin-top:-3em;
+    top: 20px;
 }
 
 #leftcolumn {
     position:absolute;
-    width:320px;
-    height:100%;
+    width:24%;
+    height:93%;
     border-top: 1px solid rgba(100, 100, 100, 0.3);
 }
 
 #mapbox {
     position:absolute;
     top:60px;
-    left:320px;
+    left:24%;
     padding:0;
     margin:0;
-    height:100%;
-    width:100%;
+    height:93%;
+    width:76%;
 }
 
 #search_results_wrapper {
-    height:90%;
-    max-height:90%;
+    height:95%;
+    max-height:95%;
     overflow: auto;
 }
 
 #footer {
     position:absolute;
-    top:90%;
+    bottom:10px;
+//    top:94%;
 width: 100%;
     text-align: center;
     margin: 0 auto;
 }
 
 .search_result {
-    list-item-style: none;
+    list-style-type: none;
 clear:both;
 }
 
 a {
-    font-weight: bold;
+    color:#25c;
     text-decoration: none;
-    color: #25C;
+}
+
+.search_result a {
+    font-weight: bold;
     font-size: 1.2em;
 }
 
@@ -88,9 +124,20 @@ a {
 .debug {
     font-size: 11px;
 }
+#time {
+display: inline;
+}
+
+#about_button_div{
+display: inline;
+}
 
 ul {
     padding-left: 0em;
+}
+
+#about li {
+    margin-left: 2em;
 }
 
 .ui-autocomplete .ui-menu-item {
@@ -117,7 +164,6 @@ ul {
 .selected {
     background-color:#cef;
 }
-
 #map { width: 100%; height: 100% ;
 
   border: 1px solid rgba(100, 100, 100, 0.3);
@@ -144,6 +190,9 @@ ul {
          <!--   <label for="display_debug">debug</label>
             <input id="display_debug" type="checkbox" />
             -->
+            <div id="time" class="debug"></div>
+
+            <div id="about_button_div"><a href="#" onclick="showAbout();">About</a></div>
         </div>
         <div id="results">
         </div>
@@ -152,7 +201,10 @@ ul {
 
     <div id="leftcolumn">
         <div id="search_results_wrapper">
-            <div id="search_results">                                                                                                                                                              </div>                                                                                                                                                                             </div>
+            <div id="search_results">
+                <em>Start searching ...</em>
+            </div>
+        </div>
         <div id="footer">
             Copyright 2012 OpenStreetMap contributors
         </div>
@@ -288,7 +340,10 @@ $(document).ready(function() {
         appendTo : '#results',
         delay : 100,
         source: function(request, response) {
+            var before = new Date().getTime();
             $.getJSON("complete?q=" + request.term, function(data) {
+                after = new Date().getTime();
+                $("#time").html("Srv: " + data.debug.totalServerTime/1000 + " ms - Cli: " + (after-before) + " ms");
                 markers.clearLayers();
                 suggestOut = Array();
                 out = Array();
@@ -349,7 +404,10 @@ $(document).ready(function() {
     $("#name").keypress(function (e) {
         if (e.which == 13) {
             $("#name").autocomplete("close");
+            var before = new Date().getTime();
             $.getJSON("complete?q=" + $("#name").val(), function(data) {
+                after = new Date().getTime();
+                $("#time").html("" + (after-before) + " ms");
                 markers.clearLayers();
                 out = Array();
                 for (var match in data.matches) {
@@ -369,9 +427,52 @@ $(document).ready(function() {
             });
         }
     });
+
 });
 
+function showAbout() {
+     $("#about").lightbox_me({});
+}
+
 </script>
+
+<div id="about" style="display: none">
+  <a id="close_x" class="close sprited" href="#">close</a>
+The goal of this prototype is to explore search capabilities for OpenStreetMap. This search does not attempt to be as precise and complete as Nominatim, but focuses on three things:
+
+<ul>
+<li>Autocompletion as you type</li>
+<li>Ability to support typos</li>
+<li>Speed (target is to stay below 50ms server time, so generally below 150ms total time)</li>
+</ul>
+
+Typos correction is computed on the fly using a dedicated structure, which brings the speed. It is based on a Damereau-Levensthein distance, and supports
+<ul>
+<li>Letter suppression: "Pris" -&gt; "Paris"</li>
+<li>Letter insertion: "Paaris" -&gt; "Paris"</li>
+<li>Letter mismatch: "Pbris" -&gt; "Paris"</li>
+<li>Letters inversion: "Prais" -&gt; "Paris"</li>
+</ul>
+
+The following things are known issues / limitations / future ideas.
+<ul>
+<li>The segments of a same road/street should be merged</li>
+<li>No support for house numbers</li>
+<li>Ranking needs some improvements (especially on proximity handling)</li>
+<li>France only is covered</li>
+<li>Each named POI is indexed with its name, its ref and the city (cities) it is in. Therefore, for example, searching for "Rue Guisarde, Paris" works, searching for "Paris" works, but searching for "Paris, France" or "Paris, Ile-de-France" doesn't.
+<li>"Type" support is limited and some type images are missing</li>
+<li>We might want to add some phonetic rules to increase the scope of the correction</li>
+<li>Almost no caching on server side, so still some performance issues, especially on short searches</li>
+</ul>
+
+<p>
+All is based on custom in-memory data structures. For France, about 650MB of RAM is required, for about 4 million named POIs.
+</p>
+<p>
+<a href="http://github.com/cstenac/nominatiny">Source code</a>
+</p>
+</div>
 
 </body>
 
