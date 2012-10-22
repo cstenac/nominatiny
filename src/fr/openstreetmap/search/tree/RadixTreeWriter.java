@@ -128,12 +128,12 @@ public class RadixTreeWriter {
             }
         } else {
             if (node.data.length() == 0) {
-                System.out.println("WRITE HEADER AAT " + encoder.getWritten());
+//                System.out.println("WRITE HEADER AAT " + encoder.getWritten());
                 long beforeHeaderNodeChildren = encoder.getWritten(); 
                 encoder.writeByte(NODE_HEADER);
                 writeChildrenPositions(node);
                 long afterHeaderNodeChildren = encoder.getWritten();
-                System.out.println("WROTE HEADER AT " + encoder.getWritten());
+//                System.out.println("WROTE HEADER AT " + encoder.getWritten());
 
                 encoder.writeLE32((int)(afterHeaderNodeChildren - beforeHeaderNodeChildren));
                 return writtenPosition;

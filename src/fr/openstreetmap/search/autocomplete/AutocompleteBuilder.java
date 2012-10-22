@@ -223,8 +223,12 @@ public class AutocompleteBuilder {
         String previousKey = null;
         List<EntryVal> values = new ArrayList<EntryVal>();
 
+        int nlines = 0;
+        int nkeys = 0;
         while (true) {
             String line = br.readLine();
+            ++nlines;
+
             //            System.out.println("  Handle " + line);
             if (line == null) break;
             String[] chunks = line.split("\t");
@@ -237,6 +241,9 @@ public class AutocompleteBuilder {
                 values.add(ev);
             } else {
                 emitKey(previousKey, values);
+                if (++nkeys % 100000 == 0) {
+                    System.out.println("Emitted " + nkeys + " keys / " + nlines + " lines");
+                }
                 values.clear();
                 values.add(ev);
                 previousKey = key;
@@ -245,6 +252,7 @@ public class AutocompleteBuilder {
         if (values.size() > 0) {
             emitKey(previousKey, values);
         }
+        ++nlines;
 
         rtw.flush();
         bos.flush();
@@ -252,6 +260,9 @@ public class AutocompleteBuilder {
 
         dataOutputBuffered.flush();
         dataOutput.close();
+        
+        System.out.println("Done, nkeys=" + nkeys +" nlines=" + nlines +
+                " dataSize=" + outputDataFile.length() + " radixSize=" + outputFile.length());
     }
 
     List<String> clippedWords = new ArrayList<String>();
@@ -283,9 +294,6 @@ public class AutocompleteBuilder {
 //            System.out.println(" EMIT " + values.get(i).value +"  " + values.get(i).score);
             bse.writeVInt(values.get(i).value);
             bse.writeVInt(values.get(i).score);
-        }
-        if (key.startsWith("teac")) {
-            System.out.println(key +  " ->  " + baos.toByteArray().length + " for " + encodedValues);
         }
         rtw.addEntry(key, 0, baos.toByteArray());
     }

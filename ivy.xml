@@ -15,6 +15,8 @@
         <dependency org="commons-io" name="commons-io" rev="2.0"/>
         <dependency org="commons-collections" name="commons-collections" rev="3.2.1"/>
         <dependency org="org.json" name="json" rev="20090211"/>
+
+        <dependency org="net.sf.opencsv" name="opencsv" rev="2.3"/>
         
         <!-- Web frontend -->
         <dependency org="org.mortbay.jetty" name="servlet-api" rev="3.0.20100224" />

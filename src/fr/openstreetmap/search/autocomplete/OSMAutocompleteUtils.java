@@ -114,6 +114,7 @@ public class OSMAutocompleteUtils {
         
         mi.setValue(2);
         ret.name = BinaryUtils.readUTF8LenAndString(encoded, mi.intValue(), mi);
+        System.out.println("ret.name= " + ret.name);
         
         BinaryUtils.readVInt(encoded, mi.intValue(), vi);
         int nbCities = (int)vi.value;
