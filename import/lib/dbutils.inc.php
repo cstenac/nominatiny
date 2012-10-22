@@ -7,10 +7,12 @@
     return $conn;
   }
 
-  function safe_dml_query($query) {
+  function safe_dml_query($query, $verbose=True) {
       global $conn;
-    echo "------------------------\n";
-    echo "Executing PG query: $query\n";
+    if ($verbose) {
+        echo "------------------------\n";
+        echo "Executing PG query: $query\n";
+    }
     $time_start = microtime(true);
     pg_send_query($conn, $query) or die ("Failed to execute query $query");
     while (pg_connection_busy($conn)) {
@@ -28,10 +30,12 @@
     }
     $time_end = microtime(true);
     $rows = pg_affected_rows($res);
-    echo "Done executing $query: $rows touched\n";
-    $t = round(($time_end-$time_start)*1000);
-    echo "Query time: $t ms\n";
-    echo "------------------------\n";
+    if ($verbose) {
+        echo "Done executing $query: $rows touched\n";
+        $t = round(($time_end-$time_start)*1000);
+        echo "Query time: $t ms\n";
+        echo "------------------------\n";
+    }
   }
   function dml_query($query) {
     echo "------------------------\n";
