@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -37,22 +38,32 @@ import fr.openstreetmap.search.text.StringNormalizer;
  */
 public class CreateFromDBOutput {
     static class AdminDesc implements Comparable<AdminDesc>{
-        AdminDesc(String name, int level, long pop) {
+        AdminDesc(String name, int level, long pop, long osmId) {
             if (name.equals("France métropolitaine — eaux territoriales")) name = "France";
             this.name = name;
             this.level = level;
             this.pop = pop;
+            this.osmId = osmId;
         }
         String name;
+        long osmId;
         long pop;
         int level;
         ArrayList<AdminDesc> parents = new ArrayList<AdminDesc>();
-        
+
         boolean displayable;
         boolean indexable;
-        
+
         String country;
         
+        public void addParent(AdminDesc parent) {
+            // N-W England & co -> not useful
+            if (parent.osmId == 151261) return;
+            if (parent.osmId == 151164) return;
+            
+            if (parent.level < this.level) parents.add(parent);
+        }
+
         public void computeCountry() {
             for (AdminDesc parent: parents) {
                 if (parent.level == 2) {
@@ -61,11 +72,14 @@ public class CreateFromDBOutput {
                 }
             }
         }
-        
+
         public void computeAttributes() {
-            if (country.equals("France")) {
-                 displayable = (level == 2 || level == 6 || level == 8);
-                 indexable = (level == 2 || level == 6 || level == 8);
+            if (country != null && country.equals("France")) {
+                displayable = (level == 2 || level == 6 || level == 8);
+                indexable = (level == 2 || level == 6 || level == 8);
+            } else if (country != null && country.equals("United Kingdom")) {
+                displayable = (level == 2 || level == 6 || level == 8);
+                indexable = (level == 2 || level == 6 || level == 8);
             } else {
                 displayable = true;
                 indexable = true;
@@ -79,7 +93,8 @@ public class CreateFromDBOutput {
     }
 
     Map<Long, AdminDesc> adminRelations =new HashMap<Long, AdminDesc>();
-    AutocompleteBuilder builder;
+
+    Map<String, AutocompleteBuilder> builders = new HashMap<String, AutocompleteBuilder>();
     File outDir;
     Writer rawOut;
 
@@ -88,11 +103,35 @@ public class CreateFromDBOutput {
         // No definitely stop words yet :)
     }
 
+    private AutocompleteBuilder newBuilder(String name) throws IOException {
+        File f = new File(outDir, name);
+        f.mkdirs();
+
+        AutocompleteBuilder builder = new AutocompleteBuilder(new File(f, "tmp.unsorted"),
+                new File(f, "tmp.sorted"), new File(f, "radix"), new File(f, "data"));
+        builder.nbValues = 4000000;
+
+        return builder;
+    }
+    
+    private void  addBuilder(String name) throws IOException {
+        builders.put(name, newBuilder(name));
+    }
+
+    static String getBuilderName(double lon) {
+        if (lon < 4.0) return "less4";
+        if (lon < 8.0) return "4-8";
+        if (lon < 14.0) return "8-14";
+        return "more14";
+    }
+
     public CreateFromDBOutput(File outDir) throws IOException {
-        builder = new AutocompleteBuilder(new File(outDir, "tmp.unsorted"),
-                new File(outDir, "tmp.sorted"), new File(outDir, "radix"), new File(outDir, "data"));
-        builder.nbValues = 600000;
         this.outDir = outDir;
+        addBuilder("less4");
+        addBuilder("4-8");
+        addBuilder("8-14");
+        addBuilder("more14");
+
         rawOut = new OutputStreamWriter(new FileOutputStream(new File(outDir, "rawout")), "utf8");
     }
 
@@ -161,7 +200,7 @@ public class CreateFromDBOutput {
             if (chunks == null) break;
             nlines++;
 
-//            if (nlines % 3 != 0) continue; // Sampling, TEMPORARY
+            //            if (nlines % 3 != 0) continue; // Sampling, TEMPORARY
 
             tokens.clear();
 
@@ -228,9 +267,9 @@ public class CreateFromDBOutput {
                         }
                     }
                     displayableNames.add(cityDesc.name);
-                    thisAllAdminNames.add(cityDesc.name);
+                    thisAllAdminNames.add(cityDesc.name +  "(l=" + cityDesc.level + ",i=" + cityDesc.indexable + ",d=" + cityDesc.displayable + ")");
                     tokenize(cityDesc.name, tokens, adminScore);
-                    
+
                     for (AdminDesc parentDesc : cityDesc.parents) {
                         if (!isWays) {
                             // We are scoring the place itself (it's actually an admin_level higher than 8) !  Boost the "name" tokens
@@ -239,7 +278,7 @@ public class CreateFromDBOutput {
                             }
                         }
                         // Debug
-                        thisAllAdminNames.add(parentDesc.name);
+                        thisAllAdminNames.add(parentDesc.name + "(l=" + parentDesc.level + ",i=" + parentDesc.indexable + ",d=" + parentDesc.displayable + ")");
 
                         if (parentDesc.displayable) {
                             displayableNames.add(cityDesc.name);
@@ -254,11 +293,11 @@ public class CreateFromDBOutput {
                 byte[] value = new OSMAutocompleteUtils().encodeData(isWays, type, name.isEmpty() ? ref : name, 
                         displayableNames.toArray(new String[0]), lon, lat, id);
 
-                builder.addEntry(tokens, value, true);
+                builders.get(getBuilderName(lon)).addEntry(tokens, value, true);
 
                 // Debugging output
                 rawOut.write(name.isEmpty() ? ref : name + "\t" + id + "\t" + type + "\t" + StringUtils.join(tokens, "-") + "\t(lat=" + lat + ",lon=" + lon + ")");
-                rawOut.write("\tisIn: " + StringUtils.join(thisAllAdminNames, "-") + "\tpop:" + biggestPop + "\n");
+                rawOut.write("\tisIn: " + StringUtils.join(thisAllAdminNames, " // ") + "\tpop:" + biggestPop + "\n");
 
                 // TODO: Boost correct-length matches ?
 
@@ -302,7 +341,7 @@ public class CreateFromDBOutput {
                 String name = chunks[2].replaceAll("^\\s+", "");
                 int level = Integer.parseInt(chunks[3]);
 
-                adminRelations.put(id, new AdminDesc(name, level, pop));
+                adminRelations.put(id, new AdminDesc(name, level, pop, id));
 
                 if (nlines % 10000 == 0) {
                     System.out.println("Parsed " + nlines + " cities, id=" + id + " name=" + name );
@@ -333,24 +372,31 @@ public class CreateFromDBOutput {
             if (parent == null || child == null) {
                 System.out.println("DID NOT FIND " + parent_id + " " + child_id);
             } else {
-                child.parents.add(parent);
+                child.addParent(parent);
             }
         }
-        
+
         System.out.println("Computing admin attributes");
         for (AdminDesc ad : adminRelations.values()) ad.computeCountry();
         for (AdminDesc ad : adminRelations.values()) ad.computeAttributes();
+        for (AdminDesc ad : adminRelations.values()) Collections.sort(ad.parents);
+
     }
 
     public void flush() throws Exception {
-        builder.flush();
         rawOut.close();
 
-        FileWriter fwr = new FileWriter(outDir + "/stopwords");
-        for (String s : builder.clippedWords) {
-            fwr.write(s + "\n");
+        for (String name : builders.keySet()) {
+            System.out.println("Flushing builder " + name);
+            AutocompleteBuilder builder = builders.get(name);
+            builder.flush();
+            FileWriter fwr = new FileWriter(outDir + "/" + name + "/stopwords");
+            for (String s : builder.clippedWords) {
+                fwr.write(s + "\n");
+            }
+
+            fwr.close();
         }
-        fwr.close();
     }
 
     public static void main(String[] args) throws Exception {
