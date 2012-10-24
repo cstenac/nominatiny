@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -55,12 +56,12 @@ public class CreateFromDBOutput {
         boolean indexable;
 
         String country;
-        
+
         public void addParent(AdminDesc parent) {
             // N-W England & co -> not useful
             if (parent.osmId == 151261) return;
             if (parent.osmId == 151164) return;
-            
+
             if (parent.level < this.level) parents.add(parent);
         }
 
@@ -88,7 +89,7 @@ public class CreateFromDBOutput {
 
         @Override
         public int compareTo(AdminDesc arg0) {
-            return this.level - arg0.level;
+            return -this.level + arg0.level;
         }
     }
 
@@ -113,21 +114,24 @@ public class CreateFromDBOutput {
 
         return builder;
     }
-    
+
     private void  addBuilder(String name) throws IOException {
         builders.put(name, newBuilder(name));
     }
 
-    static String getBuilderName(double lon) {
-        if (lon < 4.0) return "less4";
-        if (lon < 8.0) return "4-8";
-        if (lon < 14.0) return "8-14";
-        return "more14";
+    static String getBuilderName(double lon, double lat) {
+        // France: -6 41, -6 51, 10 51, 10 41, -6 41
+        if (41 < lat && lat < 51 && -6 < lon && lon < 10) return "france";
+        if (lon < 8) return "less7";
+        return null;
+        //        if (lon < 14.0) return "8-14";
+        //        return "more14";
     }
 
     public CreateFromDBOutput(File outDir) throws IOException {
         this.outDir = outDir;
-        addBuilder("less4");
+        addBuilder("france");
+        addBuilder("less7");
         addBuilder("4-8");
         addBuilder("8-14");
         addBuilder("more14");
@@ -217,23 +221,36 @@ public class CreateFromDBOutput {
                 double lon = Double.parseDouble(centroidCoords[0]);
                 double lat = Double.parseDouble(centroidCoords[1]);
 
-                /* Build the list of cities (admin level 8) this node/way is in */
-                List<AdminDesc> cityDescs = new ArrayList<CreateFromDBOutput.AdminDesc>();
+                if (getBuilderName(lon, lat) == null) continue;
+
+                /* Build the list of cities (admin level 8) we have definitely registered this /node/way as being in */
+                List<AdminDesc> directlyReferenced = new ArrayList<CreateFromDBOutput.AdminDesc>();
                 String[] cities = chunks[4].substring(1, chunks[4].length() - 1).split(",");
                 if (cities.length == 1 && cities[0].length() == 0) cities = new String[0];
 
+                int minLevel = Integer.MAX_VALUE, maxLevel = 0;
                 for (String cityIdStr: cities) {
                     if (cityIdStr.length() == 0) continue;
                     long cityId = Long.parseLong(cityIdStr);
                     AdminDesc cityDesc = adminRelations.get(cityId);
                     if (cityDesc != null) {
-                        cityDescs.add(cityDesc);
+                        minLevel = Math.min(minLevel, cityDesc.level);
+                        maxLevel = Math.max(maxLevel, cityDesc.level);
+                        directlyReferenced.add(cityDesc);
                     }
+                }
+                /* Only keep the innermost level */
+                {
+                    List<AdminDesc> tmp = new ArrayList<CreateFromDBOutput.AdminDesc>();
+                    for (AdminDesc d : directlyReferenced) {
+                        if (d.level == maxLevel) tmp.add(d);
+                    }
+                    directlyReferenced = tmp;
                 }
 
                 /* Find out the largest population */
                 long biggestPop = 0;
-                for (AdminDesc cd : cityDescs) biggestPop = Math.max(cd.pop, biggestPop);
+                for (AdminDesc cd : directlyReferenced) biggestPop = Math.max(cd.pop, biggestPop);
 
                 long score = isWays ? scoreWay(tokens, type, biggestPop) : scoreNode(tokens, type, biggestPop);
 
@@ -256,44 +273,56 @@ public class CreateFromDBOutput {
                 }
 
                 long adminScore = 1; // The display form of the admin relations is less important.
-                List<String> displayableNames = new ArrayList<String>();
+                Set<String> indexableNames = new HashSet<String>();
+                Set<AdminDesc> displayableNames = new HashSet<AdminDesc>();
                 List<String> thisAllAdminNames = new ArrayList<String>(); 
 
-                for (AdminDesc cityDesc : cityDescs) {
+                for (AdminDesc cityDesc : directlyReferenced) {
+                    // Debug
+                    thisAllAdminNames.add(cityDesc.name +  "(l=" + cityDesc.level + ",i=" + cityDesc.indexable + ",d=" + cityDesc.displayable + ")");
+
                     if (!isWays) {
                         // We are scoring the place itself!  Boost the "name" tokens
                         if (cityDesc.name.equals(name)) {
                             for (ScoredToken sc : tokens) sc.score += 10000;
                         }
                     }
-                    displayableNames.add(cityDesc.name);
-                    thisAllAdminNames.add(cityDesc.name +  "(l=" + cityDesc.level + ",i=" + cityDesc.indexable + ",d=" + cityDesc.displayable + ")");
-                    tokenize(cityDesc.name, tokens, adminScore);
+                    displayableNames.add(cityDesc);
+                    indexableNames.add(cityDesc.name);
 
                     for (AdminDesc parentDesc : cityDesc.parents) {
+                        // Debug
+                        thisAllAdminNames.add(parentDesc.name + "(l=" + parentDesc.level + ",i=" + parentDesc.indexable + ",d=" + parentDesc.displayable + ")");
+
                         if (!isWays) {
                             // We are scoring the place itself (it's actually an admin_level higher than 8) !  Boost the "name" tokens
                             if (parentDesc.name.equals(name)) {
                                 for (ScoredToken sc : tokens) sc.score += 5000;
                             }
                         }
-                        // Debug
-                        thisAllAdminNames.add(parentDesc.name + "(l=" + parentDesc.level + ",i=" + parentDesc.indexable + ",d=" + parentDesc.displayable + ")");
 
                         if (parentDesc.displayable) {
-                            displayableNames.add(cityDesc.name);
+                            displayableNames.add(parentDesc);
                         }
                         if (parentDesc.indexable) {
-                            tokenize(parentDesc.name, tokens, adminScore);
+                            indexableNames.add(parentDesc.name);
                         }
                     }
                 }
+                for (String indexableName : indexableNames) {
+                    tokenize(indexableName, tokens, adminScore);
+                }
+
+                List<String> sortedDisplayableNames = new ArrayList<String>();
+                AdminDesc[] l = displayableNames.toArray(new AdminDesc[0]);
+                Arrays.sort(l);
+                for (AdminDesc a : l) sortedDisplayableNames.add(a.name);
 
                 /* Compute the display value */
                 byte[] value = new OSMAutocompleteUtils().encodeData(isWays, type, name.isEmpty() ? ref : name, 
-                        displayableNames.toArray(new String[0]), lon, lat, id);
+                        sortedDisplayableNames.toArray(new String[0]), lon, lat, id);
 
-                builders.get(getBuilderName(lon)).addEntry(tokens, value, true);
+                builders.get(getBuilderName(lon, lat)).addEntry(tokens, value, true);
 
                 // Debugging output
                 rawOut.write(name.isEmpty() ? ref : name + "\t" + id + "\t" + type + "\t" + StringUtils.join(tokens, "-") + "\t(lat=" + lat + ",lon=" + lon + ")");
@@ -315,20 +344,23 @@ public class CreateFromDBOutput {
 
 
     public void parseCityList(File  f) throws Exception {
-        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f), "utf8"));
+        CSVReader reader = new CSVReader(new InputStreamReader(new FileInputStream(f), "utf8"));
+        //BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f), "utf8"));
 
         int nlines = 0;
         int withPop = 0;
         while (true) {
-            String line = br.readLine();
-            if (line == null) break;
-            if (nlines ++ <= 2) continue;
+            //            String line = 
+            //            if (line == null) break;
+            //            if (nlines ++ <= 2) continue;
 
             try {
-                String[] chunks = StringUtils.splitPreserveAllTokens(line, ',');
+                String[] chunks = reader.readNext();;//StringUtils.splitPreserveAllTokens(line, ',');
+                if (chunks == null) break;
+                nlines++;
 
                 if (chunks.length > 4) {
-                    System.out.println(line);
+                    //                    System.out.println(line);
                 }
 
                 long id = Long.parseLong(chunks[0]);
@@ -347,7 +379,7 @@ public class CreateFromDBOutput {
                     System.out.println("Parsed " + nlines + " cities, id=" + id + " name=" + name );
                 }
             } catch (Exception e) {
-                System.out.println("FAILED TO PARSE " + line);
+                System.out.println("FAILED TO PARSE " );
             }
 
         }
