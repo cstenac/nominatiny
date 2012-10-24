@@ -14,8 +14,8 @@
 
     safe_dml_query("create table if not exists admin_geom (".
             "relation_id INTEGER, name TEXT, needs_compute INTEGER, tags hstore)");
-    //safe_dml_query("SELECT AddGeometryColumn('', 'admin_geom', 'geom', 4326, 'GEOMETRY', 2);");
-    //safe_dml_query("SELECT AddGeometryColumn('', 'admin_geom', 'geom_dump', 4326, 'GEOMETRY', 2);");
+    dml_query("SELECT AddGeometryColumn('', 'admin_geom', 'geom', 4326, 'GEOMETRY', 2);");
+    dml_query("SELECT AddGeometryColumn('', 'admin_geom', 'geom_dump', 4326, 'GEOMETRY', 2);");
 
     //CREATE INDEX idx_city_geom_geog ON city_geom using gist(geog);
     //CREATE INDEX idx_city_geom_geom_dump ON city_geom using gist(geom_dump);
@@ -24,12 +24,13 @@
    // France 11980 - 1362232 metropole - 79981
    // Germany 51477 - 1111111
    // Quebec 61549
-    $result = pg_query("SELECT r.id, SUM(case when rm.member_type='R' then 1 else 0 end) as nested from relations r inner join relation_members rm on rm.relation_id = r.id where r.tags -> 'boundary' = 'administrative' GROUP by r.id") or die("Query failed");
+    $result = pg_query("SELECT r.id, SUM(case when rm.member_type='R' then 1 else 0 end) as nested from relations r inner join relation_members rm on rm.relation_id = r.id where r.tags -> 'boundary' = 'administrative' GROUP by r.id ORDER BY r.id") or die("Query failed");
     $beg = microtime(true);
     $count = 0;
     $total_nested = 0;
     $errors = Array();
     $num = pg_num_rows($result);
+//    while (false) {
     while ($line = pg_fetch_array($result, null, PGSQL_ASSOC)) {
         $id = $line["id"];
         $nested = $line["nested"];
@@ -39,11 +40,14 @@
 
         // INCREMENTAL MODE
         if (pg_num_rows(pg_query("SELECT relation_id from admin_geom where relation_id=$id")) > 0) {
-            echo "Skipping $id\n";
+//            echo "Skipping $id\n";
             continue;
         }
 
-        if ($id== 441315) continue; // Weird stuff, infinite loop
+        if ($id > 400000) break; // WEIRD STUFF AFTER !
+
+        if ($id == 441315) continue; // Weird stuff, infinite loop
+        if ($id == 436174) continue;
 
 
     	safe_dml_query("DELETE FROM admin_geom where relation_id=$id");
@@ -86,49 +90,39 @@
 		echo "Failed city $id because of $err\n";
 	}
 
-    /* Compute a polygon using flat geometry */ 
-    /*safe_dml_query("INSERT INTO city_geom(relation_id, city, geom) ".
-    "SELECT r.id, MIN(hstore(r.tags) -> 'name') , ST_Polygonize(ways.linestring) geom ".
-	"FROM ways ".
-	"        INNER JOIN relation_members rn on rn.member_id = ways.id ".
-	"        INNER JOIN relations r on rn.relation_id = r.id ".
-    "            AND rn.member_type='W' AND hstore(r.tags) -> 'admin_level' = '8' GROUP BY r.id;");
-	*/
-  //}
+  // safe_dml_query("   UPDATE city_geom SET geom_dump = (ST_Dump(geom)).geom;");
+  /* Recompute the polygon of each city as a geography. This will be used for precise computations like city surface */
+  // safe_dml_query("update city_geom set geog = (ST_Dump(geom)).geom;");
 
-   safe_dml_query("   UPDATE city_geom SET geom_dump = (ST_Dump(geom)).geom;");
-  /* Recompute the polygon of each city as a geography. This 
--- will be used for precise computations like city surface */
-  safe_dml_query("update city_geom set geog = (ST_Dump(geom)).geom;");
 
-/*
-  // Also create geometry for regions. This can help us focus more the analysis 
-  safe_dml_query("DROP TABLE IF EXISTS region_geom;");
-  safe_dml_query("CREATE TABLE region_geom(" .
-  "  relation_id INTEGER PRIMARY KEY, ".
-  "  geog geography('POLYGON', 4326))");
-  safe_dml_query("SELECT AddGeometryColumn('region_geom', 'geom', 4326, 'GEOMETRY', 2);");
-  safe_dml_query("SELECT AddGeometryColumn('region_geom', 'geom_dump', 4326, 'POLYGON', 2);");
+    /* Second pass: compute parent-child relationships.
+     * We do it in several queries, not only in one, because some intersections fail
+     */
+    // This is how wwe would do it with one
+    // create table admin_parent_child as select parent.relation_id as parent_id, child.relation_id as child_id from admin_geom parent inner join admin_geom child on ST_Intersects(parent.geom_dump, child.geom_dump) where char_length(parent.tags->'admin_level') < 3 AND char_length(child.tags->'admin_level') < 3 AND (parent.tags -> 'admin_level')::int < (child.tags -> 'admin_level')::int ;  
 
-  if (!$has_linestring_in_ways) {
-    // Compute a polygon using flat geometry
-    safe_dml_query("INSERT INTO region_geom(relation_id,  geom) ".
-    "SELECT r.id, MIN(hstore(r.tags) -> 'name') , ST_Polygonize(way_geometry.geom) geom ".
-	"FROM way_geometry ".
-	"	INNER JOIN ways on ways.id=way_geometry.way_id ".
-	"        INNER JOIN relation_members rn on rn.member_id = ways.id ".
-	"        INNER JOIN relations r on rn.relation_id = r.id ".
-    "            AND rn.member_type='W' AND hstore(r.tags) -> 'admin_level' = '4' GROUP BY r.id;");
-  } else {
-    // Compute a polygon using flat geometry 
-    safe_dml_query("INSERT INTO region_geom(relation_id, geom) ".
-    "SELECT r.id, MIN(hstore(r.tags) -> 'name') , ST_Polygonize(ways.linestring) geom ".
-	"FROM ways ".
-	"        INNER JOIN relation_members rn on rn.member_id = ways.id ".
-	"        INNER JOIN relations r on rn.relation_id = r.id ".
-    "            AND rn.member_type='W' AND hstore(r.tags) -> 'admin_level' = '4' GROUP BY r.id;");
-  }
-  safe_dml_query("UPDATE region_geom SET geom_dump = (ST_Dump(geom)).geom;");
-  safe_dml_query("update region_geom set geog = (ST_Dump(geom)).geom;");
-*/
+    safe_dml_query("create table if not exists admin_parent_child (parent_id bigint, child_id bigint)");
+    $result = pg_query("SELECT relation_id from admin_geom where char_length(tags->'admin_level') < 3");
+    $beg = microtime(true);
+    $count = 0;
+    $total_nested = 0;
+    $errors = Array();
+    $num = pg_num_rows($result);
+    while ($line = pg_fetch_array($result, null, PGSQL_ASSOC)) {
+        $child_id = $line["relation_id"];
+        $t = round( (microtime(true) - $beg) * 1000);
+        echo "Compute parents of $child_id ($count/$num - $t ms total - ".count($errors)." errors)\n";
+        $count++;
+        safe_dml_query("DELETE FROM admin_parent_child WHERE child_id=$child_id",False);
+
+        $ret = dml_query("INSERT INTO admin_parent_child select parent.relation_id as parent_id, child.relation_id as child_id from admin_geom parent inner join admin_geom child on ST_Within(child.geom_dump, parent.geom_dump) where char_length(parent.tags->'admin_level') < 3 AND char_length(child.tags->'admin_level') < 3 AND (parent.tags -> 'admin_level')::int < (child.tags -> 'admin_level')::int AND child.relation_id = $child_id");
+        if (!$ret) {
+            $errors[$child_id] = pg_last_error();
+        }
+    }
+	foreach ($errors as $id => $err) {
+		echo "Failed to compute parents of $id because of $err\n";
+	}
+
+
 ?>

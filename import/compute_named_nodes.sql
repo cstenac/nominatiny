@@ -39,7 +39,7 @@ insert into named_nodes
 		WHEN tags ? 'tourism' then 'tourism'
 		END
 	) as nodetype,
-	array(select relation_id from admin_geom where st_intersects(geom_dump, nodes.geom) AND tags->'admin_level' = '8'),
+	array(select relation_id from admin_geom where st_intersects(geom_dump, nodes.geom) AND char_length(tags->'admin_level') < 3 and (tags->'admin_level')::int >= 6),
 	st_astext(geom)
 	from nodes where 
 	 	(tags ? 'name' OR tags ? 'ref') and 
