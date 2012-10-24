@@ -205,7 +205,7 @@ public class AutocompleteBuilder {
         System.out.println("Sorting entries");
 
         int retCode = execAndLog(new String[]{"/bin/sh", "-c",
-                "sort -T " + temporaryFileSorted.getParent() + " -t '\t' " + temporaryFileUnsorted.getAbsolutePath() +
+                "sort -S 2G -T " + temporaryFileSorted.getParent() + " -t '\t' " + temporaryFileUnsorted.getAbsolutePath() +
                 "> " + temporaryFileSorted.getAbsolutePath()}, new String[]{"LC_ALL=C"});
         if (retCode != 0) {
             throw new Error("Failed to sort");
