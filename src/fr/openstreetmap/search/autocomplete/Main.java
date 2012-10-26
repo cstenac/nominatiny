@@ -7,6 +7,8 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.BasicConfigurator;
@@ -21,7 +23,10 @@ public class Main {
         File shardsDir = new File(args[0]);
         
         List<MultipleWordsAutocompleter> shards = new ArrayList<MultipleWordsAutocompleter>();
-        
+
+        ExecutorService topExecutor = Executors.newFixedThreadPool(8);
+        ExecutorService bottomExecutor = Executors.newFixedThreadPool(8);
+
         
         for (File shardDir : shardsDir.listFiles()) {
             if (!shardDir.isDirectory()) continue;
@@ -36,7 +41,7 @@ public class Main {
             MappedByteBuffer dataBuffer = dataChannel.map(MapMode.READ_ONLY, 0, dataChannel.size());
             dataBuffer.load();
 
-            MultipleWordsAutocompleter shard = new MultipleWordsAutocompleter();
+            MultipleWordsAutocompleter shard = new MultipleWordsAutocompleter(bottomExecutor);
             shard.radixBuffer = radixBuffer;
             shard.dataBuffer = dataBuffer;
 
@@ -53,8 +58,6 @@ public class Main {
             shard.computeAndAddFilterRecursive("deutschland");
             shard.computeAndAddFilterRecursive("bayern");
 
-
-
             shard.dumpFiltersInfo();
 
             shard.shardName = shardDir.getName();
@@ -70,7 +73,7 @@ public class Main {
         sch.setContextPath("/");
         server.setHandler(sch);
 
-        AutocompletionServlet servlet = new AutocompletionServlet();
+        AutocompletionServlet servlet = new AutocompletionServlet(topExecutor);
         servlet.shards = shards;
         servlet.initSW(("/dev/null"));
 

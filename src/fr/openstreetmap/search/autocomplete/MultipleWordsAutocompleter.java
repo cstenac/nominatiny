@@ -30,6 +30,10 @@ public class MultipleWordsAutocompleter {
         executor = Executors.newFixedThreadPool(8);
     }
     
+    public MultipleWordsAutocompleter(ExecutorService executor) {
+        this.executor = executor;
+    }
+    
     private Autocompleter newAutocompleter() {
         return new Autocompleter(radixBuffer, dataBuffer);
     }
