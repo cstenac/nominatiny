@@ -38,65 +38,7 @@ import fr.openstreetmap.search.text.StringNormalizer;
  *   - A select dump from the named_nodes table
  */
 public class CreateFromDBOutput {
-    static class AdminDesc implements Comparable<AdminDesc>{
-        AdminDesc(String name, int level, long pop, long osmId) {
-            if (name.equals("France métropolitaine — eaux territoriales")) name = "France";
-            this.name = name;
-            this.level = level;
-            this.pop = pop;
-            this.osmId = osmId;
-        }
-        String name;
-        long osmId;
-        long pop;
-        int level;
-        ArrayList<AdminDesc> parents = new ArrayList<AdminDesc>();
-
-        boolean displayable;
-        boolean indexable;
-
-        String country;
-
-        public void addParent(AdminDesc parent) {
-            // N-W England & co -> not useful
-            if (parent.osmId == 151261) return;
-            if (parent.osmId == 151164) return;
-
-            if (parent.level < this.level) parents.add(parent);
-        }
-
-        public void computeCountry() {
-            for (AdminDesc parent: parents) {
-                if (parent.level == 2) {
-                    country = parent.name;
-                    break;
-                }
-            }
-        }
-
-        public void computeAttributes() {
-            if (country != null && country.equals("France")) {
-                displayable = (level == 2 || level == 6 || level == 8);
-                indexable = (level == 2 || level == 6 || level == 8);
-            } else if (country != null && country.equals("United Kingdom")) {
-                displayable = (level == 2 || level == 6 || level == 8);
-                indexable = (level == 2 || level == 6 || level == 8);
-            } else if (country != null && country.equals("Deutschland")) {
-                displayable = (level == 2 || level == 4 || level == 8 || level == 10);
-                indexable = displayable;
-            } else {
-                displayable = true;
-                indexable = true;
-            }
-        }
-
-        @Override
-        public int compareTo(AdminDesc arg0) {
-            return -this.level + arg0.level;
-        }
-    }
-
-    Map<Long, AdminDesc> adminRelations =new HashMap<Long, AdminDesc>();
+    Map<Long, AdminDesc> adminRelations;
 
     Map<String, AutocompleteBuilder> builders = new HashMap<String, AutocompleteBuilder>();
     File outDir;
@@ -224,7 +166,7 @@ public class CreateFromDBOutput {
                 if (getBuilderName(lon, lat) == null) continue;
 
                 /* Build the list of cities (admin level 8) we have definitely registered this /node/way as being in */
-                List<AdminDesc> directlyReferenced = new ArrayList<CreateFromDBOutput.AdminDesc>();
+                List<AdminDesc> directlyReferenced = new ArrayList<AdminDesc>();
                 String[] cities = chunks[4].substring(1, chunks[4].length() - 1).split(",");
                 if (cities.length == 1 && cities[0].length() == 0) cities = new String[0];
 
@@ -241,7 +183,7 @@ public class CreateFromDBOutput {
                 }
                 /* Only keep the innermost level */
                 {
-                    List<AdminDesc> tmp = new ArrayList<CreateFromDBOutput.AdminDesc>();
+                    List<AdminDesc> tmp = new ArrayList<AdminDesc>();
                     for (AdminDesc d : directlyReferenced) {
                         if (d.level == maxLevel) tmp.add(d);
                     }
@@ -333,6 +275,7 @@ public class CreateFromDBOutput {
                 if (nlines % 50000 == 0) {
                     System.out.println("Parsed " +  nlines + (isWays ? " ways" : " nodes") + ", id=" + id + " name=" + name);
                 }
+//                if (nlines > 200000) break;
                 //                if (nlines > 50000) break;
             } catch (Exception e) {
                 logger.error("Failed to parse, last known id: " + lastId, e);//\n" + line, e);
@@ -340,79 +283,6 @@ public class CreateFromDBOutput {
             }
         }
         System.out.println("Parsed " + nlines  +(isWays ? " ways" : " nodes"));
-    }
-
-
-    public void parseCityList(File  f) throws Exception {
-        CSVReader reader = new CSVReader(new InputStreamReader(new FileInputStream(f), "utf8"));
-        //BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f), "utf8"));
-
-        int nlines = 0;
-        int withPop = 0;
-        while (true) {
-            //            String line = 
-            //            if (line == null) break;
-            //            if (nlines ++ <= 2) continue;
-
-            try {
-                String[] chunks = reader.readNext();;//StringUtils.splitPreserveAllTokens(line, ',');
-                if (chunks == null) break;
-                nlines++;
-
-                if (chunks.length > 4) {
-                    //                    System.out.println(line);
-                }
-
-                long id = Long.parseLong(chunks[0]);
-                long pop = 0;
-                if (chunks[1].length() != 0) {
-                    withPop++;
-                    pop = Long.parseLong(chunks[1]);
-                }
-
-                String name = chunks[2].replaceAll("^\\s+", "");
-                int level = Integer.parseInt(chunks[3]);
-
-                adminRelations.put(id, new AdminDesc(name, level, pop, id));
-
-                if (nlines % 10000 == 0) {
-                    System.out.println("Parsed " + nlines + " cities, id=" + id + " name=" + name );
-                }
-            } catch (Exception e) {
-                System.out.println("FAILED TO PARSE " );
-            }
-
-        }
-        System.out.println("Parsed " + adminRelations.size()  +" cities (" + withPop + " with pop info)");
-    }
-
-    public void parseCityParents(File f) throws Exception {
-        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(f), "utf8"));
-        int nlines = 0;
-        while (true) {
-            String line = br.readLine();
-            if (line == null) break;
-            if (nlines ++ <= 2) continue;
-
-            String[] chunks = StringUtils.splitPreserveAllTokens(line, ',');
-
-            long parent_id = Long.parseLong(chunks[0]);
-            long child_id = Long.parseLong(chunks[1]);
-
-            AdminDesc parent = adminRelations.get(parent_id);
-            AdminDesc child = adminRelations.get(child_id);
-            if (parent == null || child == null) {
-                System.out.println("DID NOT FIND " + parent_id + " " + child_id);
-            } else {
-                child.addParent(parent);
-            }
-        }
-
-        System.out.println("Computing admin attributes");
-        for (AdminDesc ad : adminRelations.values()) ad.computeCountry();
-        for (AdminDesc ad : adminRelations.values()) ad.computeAttributes();
-        for (AdminDesc ad : adminRelations.values()) Collections.sort(ad.parents);
-
     }
 
     public void flush() throws Exception {
@@ -438,8 +308,10 @@ public class CreateFromDBOutput {
         String outDir = args[1];
 
         CreateFromDBOutput instance = new CreateFromDBOutput(new File(outDir));
-        instance.parseCityList(new File(inDir, "admin-list"));
-        instance.parseCityParents(new File(inDir, "admin-parents"));
+        
+        instance.adminRelations = AdminDesc.parseCityList(new File(inDir, "admin-list"));
+        AdminDesc.parseCityParents(new File(inDir, "admin-parents"), instance.adminRelations);
+        
         instance.parseNamedWaysOrNodes(new File(inDir, "named-nodes"), false);
         instance.parseNamedWaysOrNodes(new File(inDir, "named-ways"), true);
 
