@@ -118,7 +118,7 @@ public class AutocompletionServlet extends HttpServlet{
                     @Override
                     public ShardLookup call() throws Exception {
                         long beforeShard = System.nanoTime();
-                        sl.entries = sl.shard.autocomplete(tokensList, 1, sl.di);
+                        sl.entries = sl.shard.autocompleteLong(tokensList, 1, sl.di);
                         long afterShard = System.nanoTime();
                         return sl;
                     }

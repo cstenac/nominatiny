@@ -16,8 +16,8 @@ import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWord
 public class MultiAutocompleterTest {
     public static void main(String[] args) throws Exception {
 
-        int nbPreHeat = 100;
-        int nbLoops = 200;
+        int nbPreHeat = 500;
+        int nbLoops = 500;
 
         //        System.in.read();
 
@@ -47,19 +47,11 @@ public class MultiAutocompleterTest {
         for (int i = 0; i < nbPreHeat; i++) {
             mwa.autocomplete(tokens, 1, null);
         }
-        //        System.out.println("Ready");
-
-        //        System.in.read();
-
-        //        System.out.println("GO 2");
-        //        
         long before = System.currentTimeMillis();
         for (int i = 0; i < nbLoops; i++) {
-            //            if (i % 100 == 0) System.out.println("  Done " + i);
             mwa.autocomplete(tokens, 1, null);
         }
         long after = System.currentTimeMillis();
-
         System.out.println("TIME-OLD IS " + (after-before));
 
 
@@ -95,7 +87,18 @@ public class MultiAutocompleterTest {
             mwa.autocomplete(tokens, 1, null);
         }
         after = System.currentTimeMillis();
-        System.out.println("TIME-NEW2 IS " + (after-before));
+        System.out.println("TIME-NEW IS " + (after-before));
+        
+        
+        for (int i = 0; i < nbPreHeat; i++) {
+            mwa.autocompleteLong(tokens, 1, null);
+        }
+        before = System.currentTimeMillis();
+        for (int i = 0; i < nbLoops; i++) {
+            mwa.autocompleteLong(tokens, 1, null);
+        }
+        after = System.currentTimeMillis();
+        System.out.println("TIME-NEW-HASH IS " + (after-before));
 
         //        for (int i = 0; i < nbPreHeat; i++) {
         //            mwa.autocompleteNew3(tokens, 1, null);
@@ -124,7 +127,7 @@ public class MultiAutocompleterTest {
         //        Collections.sort(mwae);
         //      
         for (MultiWordAutocompleterEntry mwae : mwael) {
-            System.out.println(" " + mwae.offset + " - s=" + mwae.score + " d=" + mwae.distance + " correct prefix=" + mwae.correctedTokens);
+//            System.out.println(" " + mwae.offset + " - s=" + mwae.score + " d=" + mwae.distance + " correct prefix=" + mwae.correctedTokens);
             //          System.out.println("   " + a.getData(mwae.offset));
         }
 
