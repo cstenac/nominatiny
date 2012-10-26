@@ -7,6 +7,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,12 +22,16 @@ public class Main {
     public static void main(String[] args) throws Exception {
         BasicConfigurator.configure();
         File shardsDir = new File(args[0]);
+        File adminList = new File(args[1]);
+        File adminRelationsFile = new File(args[2]);
         
         List<MultipleWordsAutocompleter> shards = new ArrayList<MultipleWordsAutocompleter>();
 
         ExecutorService topExecutor = Executors.newFixedThreadPool(8);
         ExecutorService bottomExecutor = Executors.newFixedThreadPool(8);
-
+        
+        Map<Long, AdminDesc> adminRelations = AdminDesc.parseCityList(adminList);
+        AdminDesc.parseCityParents(adminRelationsFile, adminRelations);
         
         for (File shardDir : shardsDir.listFiles()) {
             if (!shardDir.isDirectory()) continue;
@@ -74,6 +79,7 @@ public class Main {
         server.setHandler(sch);
 
         AutocompletionServlet servlet = new AutocompletionServlet(topExecutor);
+        servlet.adminRelations = adminRelations;
         servlet.shards = shards;
         servlet.initSW(("/dev/null"));
 

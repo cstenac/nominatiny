@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.concurrent.Callable;
@@ -34,6 +35,7 @@ public class AutocompletionServlet extends HttpServlet{
     List<MultipleWordsAutocompleter> shards;
     ExecutorService executor;
     Set<String> stopWords = new HashSet<String>();
+    Map<Long, AdminDesc> adminRelations;
     
     public AutocompletionServlet(ExecutorService executor) {
         this.executor = executor;
@@ -212,7 +214,20 @@ public class AutocompletionServlet extends HttpServlet{
                 wr.key("type").value(fr.decodedData.type);
                 wr.key("osmType").value(fr.decodedData.isWay ? "way" : "node");
                 wr.key("osmId").value(fr.decodedData.osmId);
-                wr.key("cities").value(StringUtils.join(fr.decodedData.cityNames, ", "));
+                
+                String city = "";
+                for (long adminId : fr.decodedData.cityIds) {
+                    if (city.length() > 0) city += " - ";
+
+                    AdminDesc ad =  adminRelations.get(adminId);
+                    city += ad.name;
+                    for (int i = 0; i < ad.parents.size(); i++) {
+                        if (!ad.parents.get(i).displayable) continue;
+                        city += ", " + ad.parents.get(i).name;
+                    }
+                }
+                wr.key("cities").value(city);
+                //StringUtils.join(fr.decodedData.cityNames, ", "));
                 wr.key("distance").value(fr.ae.distance);
                 wr.key("score").value(fr.ae.score);
                 wr.key("prefix").value(StringUtils.join(fr.ae.correctedTokens, " "));

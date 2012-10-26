@@ -215,8 +215,10 @@ public class CreateFromDBOutput {
                 }
 
                 long adminScore = 1; // The display form of the admin relations is less important.
+                
+                List<Long> storedIds = new ArrayList<Long>();
                 Set<String> indexableNames = new HashSet<String>();
-                Set<AdminDesc> displayableNames = new HashSet<AdminDesc>();
+//                Set<AdminDesc> displayableNames = new HashSet<AdminDesc>();
                 List<String> thisAllAdminNames = new ArrayList<String>(); 
 
                 for (AdminDesc cityDesc : directlyReferenced) {
@@ -229,7 +231,8 @@ public class CreateFromDBOutput {
                             for (ScoredToken sc : tokens) sc.score += 10000;
                         }
                     }
-                    displayableNames.add(cityDesc);
+                    storedIds.add(cityDesc.osmId);
+//                    displayableNames.add(cityDesc);
                     indexableNames.add(cityDesc.name);
 
                     for (AdminDesc parentDesc : cityDesc.parents) {
@@ -243,9 +246,9 @@ public class CreateFromDBOutput {
                             }
                         }
 
-                        if (parentDesc.displayable) {
-                            displayableNames.add(parentDesc);
-                        }
+//                        if (parentDesc.displayable) {
+//                            displayableNames.add(parentDesc);
+//                        }
                         if (parentDesc.indexable) {
                             indexableNames.add(parentDesc.name);
                         }
@@ -255,14 +258,16 @@ public class CreateFromDBOutput {
                     tokenize(indexableName, tokens, adminScore);
                 }
 
-                List<String> sortedDisplayableNames = new ArrayList<String>();
-                AdminDesc[] l = displayableNames.toArray(new AdminDesc[0]);
-                Arrays.sort(l);
-                for (AdminDesc a : l) sortedDisplayableNames.add(a.name);
+//                List<String> sortedDisplayableNames = new ArrayList<String>();
+//                AdminDesc[] l = displayableNames.toArray(new AdminDesc[0]);
+//                Arrays.sort(l);
+//                for (AdminDesc a : l) sortedDisplayableNames.add(a.name);
+                long[] d = new long[storedIds.size()];
+                for (int i = 0; i < d.length; i++) d[i] = storedIds.get(i);
 
                 /* Compute the display value */
                 byte[] value = new OSMAutocompleteUtils().encodeData(isWays, type, name.isEmpty() ? ref : name, 
-                        sortedDisplayableNames.toArray(new String[0]), lon, lat, id);
+                        d, lon, lat, id);
 
                 builders.get(getBuilderName(lon, lat)).addEntry(tokens, value, true);
 

@@ -64,7 +64,7 @@ public class OSMAutocompleteUtils {
         public boolean isWay;
         public String type;
         public String name;
-        public String[] cityNames;
+        public long[] cityIds;
         public double lon;
         public double lat;
         public long osmId;
@@ -75,15 +75,15 @@ public class OSMAutocompleteUtils {
         bse = new BinaryStreamEncoder(baos);
     }
     
-    public byte[] encodeData(boolean isWay, String type, String name, String[] cityNames, double lon, double lat, long osmId) throws IOException {
+    public byte[] encodeData(boolean isWay, String type, String name, long[] cityIds, double lon, double lat, long osmId) throws IOException {
         baos.reset();
         bse.writeByte(isWay ? TYPE_WAY : TYPE_NODE);
         bse.writeByte(typeId(type));
         
         bse.writeUTF8LenAndString(name);
-        bse.writeVInt(cityNames.length);
-        for (int i = 0; i < cityNames.length; i++) {
-            bse.writeUTF8LenAndString(cityNames[i]);
+        bse.writeVInt(cityIds.length);
+        for (int i = 0; i < cityIds.length; i++) {
+            bse.writeVInt(cityIds[i]);
         }
         bse.writeLE64(Double.doubleToLongBits(lon));
         bse.writeLE64(Double.doubleToLongBits(lat));
@@ -119,9 +119,11 @@ public class OSMAutocompleteUtils {
         int nbCities = (int)vi.value;
         mi.setValue(mi.intValue() + vi.codeSize);
         
-        ret.cityNames = new String[nbCities];
+        ret.cityIds = new long[nbCities];
         for (int i = 0; i < nbCities; i++) {
-            ret.cityNames[i] = BinaryUtils.readUTF8LenAndString(encoded, mi.intValue(), mi);
+            BinaryUtils.readVInt(encoded, mi.intValue(), vi);
+            ret.cityIds[i] = vi.value;
+            mi.setValue(mi.intValue() + vi.codeSize);
         }
         ret.lon = Double.longBitsToDouble(BinaryUtils.decodeLE64(encoded, mi.intValue()));
         ret.lat = Double.longBitsToDouble(BinaryUtils.decodeLE64(encoded, mi.intValue() + 8));
