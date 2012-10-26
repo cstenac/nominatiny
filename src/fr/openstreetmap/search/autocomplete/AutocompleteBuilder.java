@@ -30,6 +30,7 @@ public class AutocompleteBuilder {
     File temporaryFileSorted;
     File outputFile;
     File outputDataFile;
+    File outputFreqFile;
 
     public int minEntrySize = 3;
     public int nbValues = 1000;
@@ -41,6 +42,8 @@ public class AutocompleteBuilder {
     BinaryStreamEncoder bse;
 
     Writer temporaryFileWriter;
+    
+    Writer freqFileWriter;
     
     public static class ScoredToken implements Comparable<ScoredToken>{
         public ScoredToken(String token, long score) {
@@ -62,13 +65,15 @@ public class AutocompleteBuilder {
         }
     }
 
-    public AutocompleteBuilder(File temporaryFileUnsorted, File temporaryFileSorted, File outputFile,File outputDataFile) throws IOException {
-        this.temporaryFileSorted  = temporaryFileSorted;
-        this.temporaryFileUnsorted = temporaryFileUnsorted;
-        this.outputFile = outputFile;
-        this.outputDataFile = outputDataFile;
+    public AutocompleteBuilder(File outputDir) throws IOException {
+        this.temporaryFileSorted  = new File(outputDir, "tmp.sorted");
+        this.temporaryFileUnsorted = new File(outputDir, "tmp.unsorted");
+        this.outputFile = new File(outputDir, "radix");
+        this.outputDataFile = new File(outputDir, "data");
+        this.outputFreqFile = new File(outputDir, "frequencies");
 
         temporaryFileWriter = new FileWriter(temporaryFileUnsorted);
+        freqFileWriter = new FileWriter(outputFreqFile);
         dataOutput = new FileOutputStream(outputDataFile);
         dataOutputBuffered = new BufferedOutputStream(dataOutput);
         bse = new BinaryStreamEncoder(dataOutputBuffered);
@@ -261,6 +266,8 @@ public class AutocompleteBuilder {
         dataOutputBuffered.flush();
         dataOutput.close();
         
+        freqFileWriter.close();
+        
         System.out.println("Done, nkeys=" + nkeys +" nlines=" + nlines +
                 " dataSize=" + outputDataFile.length() + " radixSize=" + outputFile.length());
     }
@@ -279,6 +286,7 @@ public class AutocompleteBuilder {
             clippedWords.add(key);
             System.out.println("CLIPPED: " + key + " " + encodedValues + "/" + values.size());
         }
+        freqFileWriter.write("" + values.size() + " " + key + "\n");
         values = values.subList(0, encodedValues);
         Collections.sort(values, new Comparator<EntryVal>() {
             @Override

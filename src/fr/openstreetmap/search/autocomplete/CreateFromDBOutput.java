@@ -81,6 +81,9 @@ public class CreateFromDBOutput {
             } else if (country != null && country.equals("United Kingdom")) {
                 displayable = (level == 2 || level == 6 || level == 8);
                 indexable = (level == 2 || level == 6 || level == 8);
+            } else if (country != null && country.equals("Deutschland")) {
+                displayable = (level == 2 || level == 4 || level == 8 || level == 10);
+                indexable = displayable;
             } else {
                 displayable = true;
                 indexable = true;
@@ -108,8 +111,7 @@ public class CreateFromDBOutput {
         File f = new File(outDir, name);
         f.mkdirs();
 
-        AutocompleteBuilder builder = new AutocompleteBuilder(new File(f, "tmp.unsorted"),
-                new File(f, "tmp.sorted"), new File(f, "radix"), new File(f, "data"));
+        AutocompleteBuilder builder = new AutocompleteBuilder(f);
         builder.nbValues = 4000000;
 
         return builder;
@@ -121,18 +123,16 @@ public class CreateFromDBOutput {
 
     static String getBuilderName(double lon, double lat) {
         // France: -6 41, -6 51, 10 51, 10 41, -6 41
-        if (41 < lat && lat < 51 && -6 < lon && lon < 10) return "france";
-        if (lon < 8) return "less7";
-        return null;
-        //        if (lon < 14.0) return "8-14";
-        //        return "more14";
+        if (41 < lat && lat < 51.5 && -6 < lon && lon < 10) return "france";
+        if (lon < 7) return "less7";
+        if (lon < 14.0) return "8-14";
+        return "more14";
     }
 
     public CreateFromDBOutput(File outDir) throws IOException {
         this.outDir = outDir;
         addBuilder("france");
         addBuilder("less7");
-        addBuilder("4-8");
         addBuilder("8-14");
         addBuilder("more14");
 
