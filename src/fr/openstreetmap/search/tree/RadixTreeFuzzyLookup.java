@@ -46,9 +46,17 @@ public class RadixTreeFuzzyLookup {
         int nbChildren = (int) vint.value;
         
         int pos = (int)childrenListPos + vint.codeSize;
+        long childPos = 0;
         for (int i = 0; i < nbChildren; i++) {
             BinaryUtils.readVInt(tree.buffer, pos, vint);
-            long childPos = vint.value;
+//            System.out.println("Read vint=" + vint.value + " for position[" + i + "] childrenListPos=" + childrenListPos + " cp=" + childPos);
+            if (i == 0) {
+                childPos = childrenListPos - vint.value;
+            } else {
+                childPos = childPos + vint.value;
+            }
+//            System.out.println("  --> childPos=" + childPos);
+            
             list.add(childPos);
             pos += vint.codeSize;
 //            buffer.position((int)childrenListPos);

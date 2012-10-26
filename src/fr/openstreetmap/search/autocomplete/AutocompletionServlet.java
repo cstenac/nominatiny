@@ -13,9 +13,7 @@ import java.util.ListIterator;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import javax.servlet.ServletException;
@@ -25,7 +23,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
-import org.json.JSONException;
 import org.json.JSONWriter;
 
 import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.DebugInfo;
@@ -35,8 +32,12 @@ import fr.openstreetmap.search.autocomplete.OSMAutocompleteUtils.MatchData;
 public class AutocompletionServlet extends HttpServlet{
     private static final long serialVersionUID = 1L;
     List<MultipleWordsAutocompleter> shards;
-    ExecutorService executor = Executors.newFixedThreadPool(8);
+    ExecutorService executor;
     Set<String> stopWords = new HashSet<String>();
+    
+    public AutocompletionServlet(ExecutorService executor) {
+        this.executor = executor;
+    }
 
     public void initSW(String swFile) throws Exception {
         BufferedReader br = new BufferedReader(new FileReader(swFile));
@@ -117,9 +118,7 @@ public class AutocompletionServlet extends HttpServlet{
                 futures.add(executor.submit(new Callable<ShardLookup>() {
                     @Override
                     public ShardLookup call() throws Exception {
-                        long beforeShard = System.nanoTime();
                         sl.entries = sl.shard.autocompleteLong(tokensList, 1, sl.di);
-                        long afterShard = System.nanoTime();
                         return sl;
                     }
                 }));

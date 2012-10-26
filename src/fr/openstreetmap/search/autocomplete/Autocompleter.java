@@ -143,10 +143,12 @@ public class Autocompleter {
 			int nbVals = (int)vint.value;
 //			System.out.println("*** Approx match:" + rtfl.getMatches().get(i).key + " d=" + rtfl.getMatches().get(i).distance + " nvals=" + nbVals);
 
+			long prevVal = 0;
 			for (int j = 0; j < nbVals; j++) {
 				BinaryUtils.readVInt(match.byteArrayValue, pos, vint);
 				pos += vint.codeSize;
-				long v = vint.value;
+				long v = vint.value + prevVal;
+				prevVal = v;
 //				System.out.println("v=" + vint.value + " cs=" + vint.codeSize);
 				BinaryUtils.readVInt(match.byteArrayValue, pos, vint);
 				pos += vint.codeSize;

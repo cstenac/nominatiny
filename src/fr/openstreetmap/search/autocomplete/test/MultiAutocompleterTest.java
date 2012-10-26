@@ -41,7 +41,7 @@ public class MultiAutocompleterTest {
         List<String> tokens = new ArrayList<String>();
         tokens.add("ana");
 
-        tokens.add("boulogne");
+//        tokens.add("boulogne");
         //        tokens.add("anna");
 
         for (int i = 0; i < nbPreHeat; i++) {

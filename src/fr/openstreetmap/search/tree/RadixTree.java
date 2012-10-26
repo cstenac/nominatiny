@@ -39,14 +39,21 @@ public class RadixTree {
     }
 
     private void searchChildren(int currentPos, int nextStrPos, String str, Match match) {
+        int basePosition = currentPos;
+        
         BinaryUtils.VInt vint = new BinaryUtils.VInt();
         BinaryUtils.readVInt(buffer, currentPos, vint);
         int nbChildren = (int) vint.value;
         currentPos += vint.codeSize;
 
+        long childPos = 0;
         for (int i = 0; i < nbChildren; i++) {
             BinaryUtils.readVInt(buffer, currentPos, vint);
-            long childPos = vint.value;
+            if (i == 0) {
+                childPos = basePosition - vint.value;
+            } else {
+                childPos = childPos + vint.value;
+            }
             currentPos += vint.codeSize;
             System.out.println(indent(nextStrPos) + " recurse in child " + i +  "/" + nbChildren + " at " + childPos +" (prevvintsize=" + vint.codeSize);
             getEntryRec((int)childPos, nextStrPos, str, match);

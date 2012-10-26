@@ -22,7 +22,7 @@ public class RadixTreeTest {
 //    }
     
     @Test
-    @Ignore
+//    @Ignore
     public void big() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         RadixTreeWriter rtw = new RadixTreeWriter(baos);
@@ -74,7 +74,7 @@ public class RadixTreeTest {
     }
     
     @Test
-    @Ignore
+//    @Ignore
     public void fyzzy( ) throws IOException{
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -163,7 +163,7 @@ public class RadixTreeTest {
     } 
     
     @Test
-    @Ignore
+//    @Ignore
     public void aprefix( ) throws IOException{
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -257,6 +257,7 @@ public class RadixTreeTest {
     }
 
     @Test
+    @Ignore
     public void missingLetter( ) throws IOException{
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

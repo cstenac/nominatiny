@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -236,7 +237,7 @@ public class AutocompleteBuilder {
 
             //            System.out.println("  Handle " + line);
             if (line == null) break;
-            String[] chunks = line.split("\t");
+            String[] chunks = StringUtils.split(line, '\t');
             String key = chunks[0];
             EntryVal ev = new EntryVal(Long.parseLong(chunks[1]), Long.parseLong(chunks[2]));
             if (previousKey == null) {
@@ -260,6 +261,9 @@ public class AutocompleteBuilder {
         ++nlines;
 
         rtw.flush();
+        
+        System.out.println("childPos=" + rtw.writtenChildrenPositions + " cPS=" + rtw.writtenChildrenPositionsSize + " data=" + rtw.writtenNodesDataSize);
+        
         bos.flush();
         fos.close();
 
@@ -298,9 +302,11 @@ public class AutocompleteBuilder {
         
 //        System.out.println("EMIT " + encodedValues + " values");
         bse.writeVInt(encodedValues);
+        long prev = 0;
         for (int i = 0; i < encodedValues; i++) {
 //            System.out.println(" EMIT " + values.get(i).value +"  " + values.get(i).score);
-            bse.writeVInt(values.get(i).value);
+            bse.writeVInt(values.get(i).value  - prev);
+            prev = values.get(i).value;
             bse.writeVInt(values.get(i).score);
         }
         rtw.addEntry(key, 0, baos.toByteArray());

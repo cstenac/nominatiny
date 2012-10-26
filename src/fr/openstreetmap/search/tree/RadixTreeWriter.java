@@ -87,14 +87,39 @@ public class RadixTreeWriter {
     public static final byte NODE_INTERNAL_NOVALUE_ONECHAR = 5;
     public static final byte NODE_INTERNAL_NOVALUE_RADIX = 6;
     public static final byte NODE_HEADER = 7;
+    
+    public long writtenNodes;
+    public long writtenChildrenPositions;
+    public long writtenChildrenPositionsSize;
+    public long writtenNodesDataSize;
+
 
     private void writeChildrenPositions(RadixTreeNode node) throws IOException{
+        long basePosition = encoder.getWritten();
+        
         // TODO: Delta-encode !
         encoder.writeVInt(node.flushedChildrenPositions.size());
+        long prev = 0;
         for (int i = 0; i < node.flushedChildrenPositions.size(); i++) {
+            long cur =  node.flushedChildrenPositions.get(i);
+//            System.out.println("Encoding pos[" + i + "] bP=" + basePosition +"  cur= " + cur + " prev= " + prev);
+            if (i == 0) { 
+                long diff = basePosition - cur;
+                encoder.writeVInt(diff);
+//                System.out.println(" --> Write " + diff);
+            } else {
+                long diff = cur - prev;
+                if (diff < 0) throw new Error("bad");
+                encoder.writeVInt(diff);
+//                System.out.println(" --> Write " + diff);
+
+            }
+            prev = cur;
 //            System.out.println("WRITING CHILD OF NODE, it's at " + node.flushedChildrenPositions.get(i));
-            encoder.writeVInt(node.flushedChildrenPositions.get(i));
+//            encoder.writeVInt(node.flushedChildrenPositions.get(i));
         }
+        writtenChildrenPositionsSize += encoder.getWritten() - basePosition;
+        writtenChildrenPositions += node.flushedChildrenPositions.size();
     }
 
     private long writeNode(RadixTreeNode node) throws IOException {
@@ -113,6 +138,7 @@ public class RadixTreeWriter {
                 if (byteBuf) {
                     encoder.writeVInt(node.getByteValue().length);
                     encoder.writeBytes(node.getByteValue());
+                    writtenNodesDataSize += node.getByteValue().length;
                 } else {
                     encoder.writeVInt(node.getValue());
                 }
@@ -122,6 +148,7 @@ public class RadixTreeWriter {
                 if (byteBuf) {
                     encoder.writeVInt(node.getByteValue().length);
                     encoder.writeBytes(node.getByteValue());
+                    writtenNodesDataSize += node.getByteValue().length;
                 } else {
                     encoder.writeVInt(node.getValue());
                 }
@@ -147,6 +174,7 @@ public class RadixTreeWriter {
                     if (byteBuf) {
                         encoder.writeVInt(node.getByteValue().length);
                         encoder.writeBytes(node.getByteValue());
+                        writtenNodesDataSize += node.getByteValue().length;
                     } else {
                         encoder.writeVInt(node.getValue());
                     }
@@ -158,6 +186,7 @@ public class RadixTreeWriter {
                     if (byteBuf) {
                         encoder.writeVInt(node.getByteValue().length);
                         encoder.writeBytes(node.getByteValue());
+                        writtenNodesDataSize += node.getByteValue().length;
                     } else {
                         encoder.writeVInt(node.getValue());
                     }
