@@ -5,44 +5,63 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.Logger;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        String dataFile = args[0];
-        String radixFile = args[1];
-        String swFile = args[2];
-
-//        FileChannel radixChannel = new RandomAccessFile(new File(radixFile), "r").getChannel();
-//        MappedByteBuffer radixDirectBuffer = radixChannel.map(MapMode.READ_ONLY, 0, radixChannel.size());
-//        radixDirectBuffer.load();
-//        byte[] radixData = new byte[(int)radixChannel.size()];
-//        radixDirectBuffer.get(radixData, 0, (int)radixChannel.size());
-//        ByteBuffer radixBuffer = ByteBuffer.wrap(radixData);
+        BasicConfigurator.configure();
+        File shardsDir = new File(args[0]);
         
-        byte[] radixBuffer =FileUtils.readFileToByteArray(new File(radixFile)); 
+        List<MultipleWordsAutocompleter> shards = new ArrayList<MultipleWordsAutocompleter>();
+        
+        
+        for (File shardDir : shardsDir.listFiles()) {
+            if (!shardDir.isDirectory()) continue;
+            
+            logger.info("Loading shard " + shardDir.getName());
+            
+            logger.info("Loading radix tree");
+            byte[] radixBuffer = FileUtils.readFileToByteArray(new File(shardDir, "radix")); 
 
-        //	        ByteBuffer radixBuffer = radixDirectBuffer;
+            logger.info("Loading data");
+            FileChannel dataChannel = new RandomAccessFile(new File(shardDir, "data"), "r").getChannel();
+            MappedByteBuffer dataBuffer = dataChannel.map(MapMode.READ_ONLY, 0, dataChannel.size());
+            dataBuffer.load();
 
-        FileChannel dataChannel = new RandomAccessFile(new File(dataFile), "r").getChannel();
-        MappedByteBuffer dataBuffer = dataChannel.map(MapMode.READ_ONLY, 0, dataChannel.size());
+            MultipleWordsAutocompleter shard = new MultipleWordsAutocompleter();
+            shard.radixBuffer = radixBuffer;
+            shard.dataBuffer = dataBuffer;
 
-        MultipleWordsAutocompleter mwa = new MultipleWordsAutocompleter();
-        mwa.radixBuffer = radixBuffer;
-        mwa.dataBuffer = dataBuffer;
+            /* Preload a bit */
+            logger.info("Preloading shard");
+            shard.autocomplete(new String[]{"jol", "cur"}, 1, null);
 
-        /* Preload a bit */
-        mwa.autocomplete(new String[]{"jol", "cur"}, 1, null);
+            logger.info("Computing filters");
+            shard.computeAndAddFilter("rue");
+            shard.computeAndAddFilter("des");
+            shard.computeAndAddFilter("aux");
+            
+            shard.computeAndAddFilterRecursive("france");
+            shard.computeAndAddFilterRecursive("deutschland");
+            shard.computeAndAddFilterRecursive("bayern");
 
-        mwa.computeAndAddFilter("rue");
-        mwa.computeAndAddFilter("des");
-        mwa.computeAndAddFilter("aux");
 
-        mwa.dumpFiltersInfo();
+
+            shard.dumpFiltersInfo();
+
+            shard.shardName = shardDir.getName();
+            shards.add(shard);
+        }
+     
+        logger.info("Loading done, starting server");
 
         Server server = new Server(8080);
 
@@ -52,12 +71,14 @@ public class Main {
         server.setHandler(sch);
 
         AutocompletionServlet servlet = new AutocompletionServlet();
-        servlet.mwa = mwa;
-        servlet.initSW(swFile);
+        servlet.shards = shards;
+        servlet.initSW(("/dev/null"));
 
         sch.addServlet(new ServletHolder(servlet), "/complete");
 
         server.start();
         server.join();
     }
+    
+    private static Logger logger  = Logger.getLogger("search");
 }

@@ -12,6 +12,11 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -19,15 +24,18 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
 import org.json.JSONException;
 import org.json.JSONWriter;
 
+import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.DebugInfo;
 import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWordAutocompleterEntry;
 import fr.openstreetmap.search.autocomplete.OSMAutocompleteUtils.MatchData;
 
 public class AutocompletionServlet extends HttpServlet{
     private static final long serialVersionUID = 1L;
-    MultipleWordsAutocompleter mwa;
+    List<MultipleWordsAutocompleter> shards;
+    ExecutorService executor = Executors.newFixedThreadPool(8);
     Set<String> stopWords = new HashSet<String>();
 
     public void initSW(String swFile) throws Exception {
@@ -55,6 +63,12 @@ public class AutocompletionServlet extends HttpServlet{
         return Integer.parseInt(v);
     }
 
+    static class ShardLookup {
+        MultipleWordsAutocompleter shard;
+        List<MultiWordAutocompleterEntry> entries;
+        MultipleWordsAutocompleter.DebugInfo di;
+    }
+
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -69,7 +83,7 @@ public class AutocompletionServlet extends HttpServlet{
         System.out.println("QUERY: " + query);
 
         List<String> stopped = new ArrayList<String>();
-        List<String> tokensList = new ArrayList<String>();
+        final List<String> tokensList = new ArrayList<String>();
         CreateFromDBOutput.tokenize(query, tokensList);
 
         ListIterator<String> it = tokensList.listIterator();
@@ -88,84 +102,106 @@ public class AutocompletionServlet extends HttpServlet{
                 it.remove();
             }
         }
-
-
-        MultipleWordsAutocompleter.DebugInfo di = new MultipleWordsAutocompleter.DebugInfo();
-
-        long beforeQuery= System.nanoTime();
-        List<MultiWordAutocompleterEntry> results;
         try {
-            results = mwa.autocomplete(tokensList, 1, di);
-        } catch (Exception e1) {
-            throw new IOException(e1);
-        }
-        long afterQuery= System.nanoTime();
 
-        /* First, sort by distance then score */
-        Collections.sort(results, new Comparator<MultiWordAutocompleterEntry>() {
-            @Override
-            public int compare(MultiWordAutocompleterEntry o1, MultiWordAutocompleterEntry o2) {
-                if (o1.distance < o2.distance) return -1;
-                if (o1.distance > o2.distance) return 1;
-                if (o1.score > o2.score) return -1;
-                if (o1.score < o2.score) return 1;
-                return 0;
-            }
-        });
+            long beforeQuery= System.nanoTime();
 
-        long afterSort1 = System.nanoTime();
 
-        /* If there are some stopped words, but we can find them in the summary, then strongly boost the score.
-         * This way, stuff that did not really match will get downvoted.
-         */
-        List<FinalResult> fresults = new ArrayList<AutocompletionServlet.FinalResult>();
 
-        int nbRes = 0;
-        for (MultiWordAutocompleterEntry ae : results) {
-            FinalResult fr = new FinalResult(ae);
-            fr.encodedData = mwa.getByteData(ae.offset);
-            fr.decodedData = OSMAutocompleteUtils.decodeData(fr.encodedData);
-
-            for (String stop : stopped) {
-                String decodedName = fr.decodedData.name.toLowerCase();
-                StringTokenizer st = CreateFromDBOutput.getTokenizer(decodedName);
-                while (st.hasMoreTokens()) {
-                    String nt = st.nextToken();
-                    if (nt.equals(stop)) {
-                        // The stop word exists as a separate token, best boost
-                        fr.ae.score += 10000;
-                    } else if (nt.startsWith(stop)){
-                        // The stop word is the beginning of a token, also boost
-                        fr.ae.score += 1000;
+            List<Future<ShardLookup>> futures = new ArrayList<Future<ShardLookup>>();
+            for (MultipleWordsAutocompleter shard : shards) {
+                final ShardLookup sl = new ShardLookup();
+                sl.di = new MultipleWordsAutocompleter.DebugInfo();
+                sl.di.shardName = shard.shardName;
+                sl.shard = shard;
+                futures.add(executor.submit(new Callable<ShardLookup>() {
+                    @Override
+                    public ShardLookup call() throws Exception {
+                        long beforeShard = System.nanoTime();
+                        sl.entries = sl.shard.autocomplete(tokensList, 1, sl.di);
+                        long afterShard = System.nanoTime();
+                        return sl;
                     }
-
+                }));
+            }
+            List<MultipleWordsAutocompleter.DebugInfo> debugs = new ArrayList<MultipleWordsAutocompleter.DebugInfo>();
+            List<MultiWordAutocompleterEntry> results = new ArrayList<MultipleWordsAutocompleter.MultiWordAutocompleterEntry>();
+            for (Future<ShardLookup> future: futures) {
+                ShardLookup sl = future.get();
+                for (MultiWordAutocompleterEntry entry : sl.entries) {
+                    entry.source = sl.shard;
+                    results.add(entry);
                 }
+                debugs.add(sl.di);
             }
-            fresults.add(fr);
 
-            // Don't decode too much
-            if (++nbRes >= boostLimit) break;
-        }
+            long afterQuery= System.nanoTime();
 
-        long afterBoost = System.nanoTime();
+            /* First, sort by distance then score */
+            Collections.sort(results, new Comparator<MultiWordAutocompleterEntry>() {
+                @Override
+                public int compare(MultiWordAutocompleterEntry o1, MultiWordAutocompleterEntry o2) {
+                    if (o1.distance < o2.distance) return -1;
+                    if (o1.distance > o2.distance) return 1;
+                    if (o1.score > o2.score) return -1;
+                    if (o1.score < o2.score) return 1;
+                    return 0;
+                }
+            });
 
-        Collections.sort(fresults, new Comparator<FinalResult>() {
-            @Override
-            public int compare(FinalResult o1, FinalResult o2) {
-                int cmp = o1.ae.compareTo(o2.ae);
-                if (cmp != 0) return cmp;
-                return o1.decodedData.name.length() - o2.decodedData.name.length();
+            long afterSort1 = System.nanoTime();
+
+            /* If there are some stopped words, but we can find them in the summary, then strongly boost the score.
+             * This way, stuff that did not really match will get downvoted.
+             */
+            List<FinalResult> fresults = new ArrayList<AutocompletionServlet.FinalResult>();
+
+            int nbRes = 0;
+            for (MultiWordAutocompleterEntry ae : results) {
+                FinalResult fr = new FinalResult(ae);
+                fr.encodedData = ae.source.getByteData(ae.offset);
+                fr.decodedData = OSMAutocompleteUtils.decodeData(fr.encodedData);
+
+                for (String stop : stopped) {
+                    String decodedName = fr.decodedData.name.toLowerCase();
+                    StringTokenizer st = CreateFromDBOutput.getTokenizer(decodedName);
+                    while (st.hasMoreTokens()) {
+                        String nt = st.nextToken();
+                        if (nt.equals(stop)) {
+                            // The stop word exists as a separate token, best boost
+                            fr.ae.score += 10000;
+                        } else if (nt.startsWith(stop)){
+                            // The stop word is the beginning of a token, also boost
+                            fr.ae.score += 1000;
+                        }
+
+                    }
+                }
+                fresults.add(fr);
+
+                // Don't decode too much
+                if (++nbRes >= boostLimit) break;
             }
-        });
 
-        long afterSort= System.nanoTime();
+            long afterBoost = System.nanoTime();
 
-        resp.setCharacterEncoding("utf8");
-        resp.setContentType("application/json");
+            Collections.sort(fresults, new Comparator<FinalResult>() {
+                @Override
+                public int compare(FinalResult o1, FinalResult o2) {
+                    int cmp = o1.ae.compareTo(o2.ae);
+                    if (cmp != 0) return cmp;
+                    return o1.decodedData.name.length() - o2.decodedData.name.length();
+                }
+            });
 
-        BufferedWriter bwr = new BufferedWriter(resp.getWriter());
-        JSONWriter wr = new JSONWriter(bwr);
-        try {
+            long afterSort= System.nanoTime();
+
+            resp.setCharacterEncoding("utf8");
+            resp.setContentType("application/json");
+
+            BufferedWriter bwr = new BufferedWriter(resp.getWriter());
+            JSONWriter wr = new JSONWriter(bwr);
+
             wr.object().key("matches").array();
 
             nbRes = 0;
@@ -188,26 +224,44 @@ public class AutocompletionServlet extends HttpServlet{
 
             long atEnd = System.nanoTime();
 
+            long totalTokensMatchTime = 0, totalFilterTime = 0, totalIntersectionTime = 0;
+            for (DebugInfo di : debugs) {
+                totalTokensMatchTime += di.totalTokensMatchTime;
+                totalFilterTime += di.filterTime;
+                totalIntersectionTime += di.intersectionTime;
+            }
+
+
             if (debug > 0) {
                 wr.key("debug").object();
                 wr.key("stopWords").value(StringUtils.join(stopped, ", "));
-                wr.key("tokens").array();
-                for (int i = 0; i < di.tokensDebugInfo.size(); i++) {
-                    wr.object().key("token").value(di.tokensDebugInfo.get(i).value);
-                    wr.key("rtMatches").value(di.tokensDebugInfo.get(i).radixTreeMatches);
-                    wr.key("decodedMatches").value(di.tokensDebugInfo.get(i).decodedMatches);
-                    wr.key("rtMatchTime").value(di.tokensDebugInfo.get(i).radixTreeMatchTime);
-                    wr.key("decodingTime").value(di.tokensDebugInfo.get(i).listsDecodingTime);
-                    wr.endObject();
+                wr.key("shards").array();
+                for (DebugInfo di : debugs) {
+                    wr.object().key("name").value(di.shardName);
+                    wr.key("totalMatchTime").value(di.totalTokensMatchTime);
+                    wr.key("filterTime").value(di.filterTime);
+                    wr.key("intersectionTime").value(di.intersectionTime);
+
+                    wr.key("tokens").array();
+                    for (int i = 0; i < di.tokensDebugInfo.size(); i++) {
+                        wr.object().key("token").value(di.tokensDebugInfo.get(i).value);
+                        wr.key("rtMatches").value(di.tokensDebugInfo.get(i).radixTreeMatches);
+                        wr.key("decodedMatches").value(di.tokensDebugInfo.get(i).decodedMatches);
+                        wr.key("rtMatchTime").value(di.tokensDebugInfo.get(i).radixTreeMatchTime);
+                        wr.key("decodingTime").value(di.tokensDebugInfo.get(i).listsDecodingTime);
+                        wr.endObject();
+                    }
+                    wr.endArray(); // tokens
+                    wr.endObject(); // shard
                 }
-                wr.endArray(); // tokens
+                wr.endArray();// shrads
                 wr.key("finalMatches").value(results.size());
 
                 wr.key("preprocessTime").value((beforeQuery - startup)/1000);
                 wr.key("processTime").value((afterQuery - beforeQuery)/1000);
-                wr.key("totalMatchTime").value(di.totalTokensMatchTime);
-                wr.key("filterTime").value(di.filterTime);
-                wr.key("intersectionTime").value(di.intersectionTime);
+                wr.key("totalMatchTime").value(totalTokensMatchTime);
+                wr.key("filterTime").value(totalFilterTime);
+                wr.key("intersectionTime").value(totalIntersectionTime);
                 wr.key("sortTime").value((afterSort - afterQuery)/1000);
                 wr.key("resultsWriteTime").value((atEnd- afterSort)/1000);
                 wr.key("totalServerTime").value((atEnd - startup)/1000);
@@ -217,19 +271,23 @@ public class AutocompletionServlet extends HttpServlet{
 
             bwr.flush();
 
+
             System.out.print("QUERY: " + query + " DONE: totalMatches=" + results.size());
             System.out.print(" totalTime=" + (atEnd-startup)/1000);
             System.out.print(" preprocTime=" + (beforeQuery - startup)/1000);
             System.out.print(" processTime=" + (afterQuery - beforeQuery)/1000);
-            System.out.print(" (match=" + di.totalTokensMatchTime + " filter=" + di.filterTime + " intersect=" + di.intersectionTime + ")");
+            System.out.print(" (match=" + totalTokensMatchTime + " filter=" + totalFilterTime + " intersect=" + totalIntersectionTime + ")");
             System.out.print(" sortTime=" + (afterSort - afterQuery)/1000 );
             System.out.print(" (s1=" + (afterSort1 - afterQuery)/1000 + " b=" + (afterBoost-afterSort1)/1000 + " s2=" + (afterSort-afterBoost)/1000 + ")");
 
             System.out.println(" writeTime=" + (atEnd- afterSort)/1000);
 
-        } catch (JSONException e) {
+        } catch (Exception e) {
+            logger.error("Query failed", e);
             throw new IOException(e);
         }
 
     }
+    
+    private static Logger logger = Logger.getLogger("search.servlet");
 }

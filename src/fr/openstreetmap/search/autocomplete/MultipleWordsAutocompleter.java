@@ -23,6 +23,7 @@ import fr.openstreetmap.search.binary.LongList;
 public class MultipleWordsAutocompleter {
     public ByteBuffer dataBuffer;
     public byte[] radixBuffer;
+    public String shardName;
     
     public MultipleWordsAutocompleter() {
         executor = Executors.newFixedThreadPool(8);
@@ -49,6 +50,13 @@ public class MultipleWordsAutocompleter {
         addFilter(token, computeFilter(token));
     }
     
+    public void computeAndAddFilterRecursive(String token) {
+        for (int i = token.length() - 1; i >= 3; i--) {
+            String t = token.substring(0, i);
+            addFilter(t, computeFilter(t));
+        }
+    }
+    
     public long[] computeFilter(String token) {
         List<AutocompleterEntry> list = newAutocompleter().getOffsets(token, 0, null);
         long[] ret = new long[list.size()];
@@ -71,10 +79,11 @@ public class MultipleWordsAutocompleter {
     public int[] distanceMap = new int[]{0,0,0, 1, 1, 1};
 
     public static class DebugInfo {
+        String shardName;
         List<Autocompleter.DebugInfo> tokensDebugInfo = new ArrayList<Autocompleter.DebugInfo>();
         long totalTokensMatchTime;
         long intersectionTime;
-        long filterTime; 
+        long filterTime;
     }
 
     public static class MultiWordAutocompleterEntry implements Comparable<MultiWordAutocompleterEntry>{
@@ -82,6 +91,8 @@ public class MultipleWordsAutocompleter {
         public long score;
         public long distance;
         public String[] correctedTokens;
+        
+        public MultipleWordsAutocompleter source;
 
         @Override
         public int compareTo(MultiWordAutocompleterEntry o) {
@@ -118,7 +129,7 @@ public class MultipleWordsAutocompleter {
         final List<String> nonFilterTokens = new ArrayList<String>();
         List<String> filterTokens = new ArrayList<String>();
         for (String token : origTokens) {
-            if (filters.containsKey(token)) {
+            if (filters.containsKey(token )) {
                 filterTokens.add(token);
             } else {
                 nonFilterTokens.add(token);
