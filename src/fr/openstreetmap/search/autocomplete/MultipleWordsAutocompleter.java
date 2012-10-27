@@ -317,11 +317,13 @@ public class MultipleWordsAutocompleter {
                 //                System.out.println("FIRST TOKEN, prev list" + lists.get(i).size());
                 for (AutocompleterEntry ae : lists.get(i)) {
 //                    if (mapAfter.containsKey(ae.offset)) {
-//                        MultiWordAutocompleterEntry candidate = mapAfter.get(ae.offset);
+//                       
 //                        candidate.score += ae.score;
 //                    } else {
                         MultiWordAutocompleterEntry candidate = new MultiWordAutocompleterEntry();
-                        candidate.offset = ae.offset; candidate.score = ae.score; candidate.distance = ae.distance;
+                        candidate.offset = ae.offset; 
+                        candidate.score = ae.score + 100000 * (2 - ae.distance);
+                        //candidate.distance = ae.distance;
                         candidate.correctedTokens = new String[]{ae.correctedPrefix};
                         mapAfter.put(ae.offset, candidate);
 //                    }
@@ -332,8 +334,8 @@ public class MultipleWordsAutocompleter {
                 for (AutocompleterEntry ae : lists.get(i)) {
                     MultiWordAutocompleterEntry prev =  prevMap.get(ae.offset);
                     if (prev != null) {
-                        prev.score = prev.score + ae.score;
-                        prev.distance = Math.max(prev.distance, ae.distance);
+                        prev.score = prev.score + ae.score + 100000 * (2 - ae.distance);
+                        prev.distance = 0;//Math.max(prev.distance, ae.distance);
                         prev.correctedTokens = (String[])ArrayUtils.add(prev.correctedTokens, ae.correctedPrefix);
                         mapAfter.put(ae.offset, prev);
                     }
