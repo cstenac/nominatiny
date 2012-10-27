@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import org.apache.commons.lang.StringUtils;
 
@@ -109,7 +110,7 @@ public class AdminDesc implements Comparable<AdminDesc>{
                     System.out.println("Parsed " + nlines + " cities, id=" + id + " name=" + name );
                 }
             } catch (Exception e) {
-                System.out.println("FAILED TO PARSE " );
+                logger.error("FAILED TO PARSE CITY " + nlines, e);
             }
 
         }
@@ -147,4 +148,5 @@ public class AdminDesc implements Comparable<AdminDesc>{
 
     }
     
+    private static org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger("admin");
 }
