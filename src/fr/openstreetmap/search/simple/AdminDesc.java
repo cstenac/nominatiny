@@ -1,4 +1,4 @@
-package fr.openstreetmap.search.autocomplete;
+package fr.openstreetmap.search.simple;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -13,7 +13,7 @@ import org.apache.commons.lang.StringUtils;
 
 import au.com.bytecode.opencsv.CSVReader;
 
-class AdminDesc implements Comparable<AdminDesc>{
+public class AdminDesc implements Comparable<AdminDesc>{
     AdminDesc(String name, int level, long pop, long osmId) {
         if (name.equals("France métropolitaine — eaux territoriales")) name = "France";
         this.name = name;
@@ -21,16 +21,16 @@ class AdminDesc implements Comparable<AdminDesc>{
         this.pop = pop;
         this.osmId = osmId;
     }
-    String name;
-    long osmId;
-    long pop;
-    int level;
-    ArrayList<AdminDesc> parents = new ArrayList<AdminDesc>();
+    public String name;
+    public long osmId;
+    public long pop;
+    public int level;
+    public ArrayList<AdminDesc> parents = new ArrayList<AdminDesc>();
 
-    boolean displayable;
-    boolean indexable;
+    public boolean displayable;
+    public boolean indexable;
 
-    String country;
+    public String country;
 
     public void addParent(AdminDesc parent) {
         // N-W England & co -> not useful

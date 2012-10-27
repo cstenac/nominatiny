@@ -1,4 +1,4 @@
-package fr.openstreetmap.search.autocomplete;
+package fr.openstreetmap.search.simple;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -26,6 +26,7 @@ import org.apache.log4j.Logger;
 
 import au.com.bytecode.opencsv.CSVReader;
 
+import fr.openstreetmap.search.autocomplete.AutocompleteBuilder;
 import fr.openstreetmap.search.autocomplete.AutocompleteBuilder.ScoredToken;
 import fr.openstreetmap.search.text.StringNormalizer;
 
@@ -37,7 +38,7 @@ import fr.openstreetmap.search.text.StringNormalizer;
  *   - A select dump from the named_ways table
  *   - A select dump from the named_nodes table
  */
-public class CreateFromDBOutput {
+public class Builder {
     Map<Long, AdminDesc> adminRelations;
 
     Map<String, AutocompleteBuilder> builders = new HashMap<String, AutocompleteBuilder>();
@@ -71,7 +72,7 @@ public class CreateFromDBOutput {
         return "more14";
     }
 
-    public CreateFromDBOutput(File outDir) throws IOException {
+    public Builder(File outDir) throws IOException {
         this.outDir = outDir;
         addBuilder("france");
         addBuilder("less7");
@@ -312,7 +313,7 @@ public class CreateFromDBOutput {
         File inDir  = new File(args[0]);
         String outDir = args[1];
 
-        CreateFromDBOutput instance = new CreateFromDBOutput(new File(outDir));
+        Builder instance = new Builder(new File(outDir));
         
         instance.adminRelations = AdminDesc.parseCityList(new File(inDir, "admin-list"));
         AdminDesc.parseCityParents(new File(inDir, "admin-parents"), instance.adminRelations);

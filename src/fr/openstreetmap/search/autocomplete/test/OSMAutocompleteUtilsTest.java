@@ -3,8 +3,8 @@ package fr.openstreetmap.search.autocomplete.test;
 import org.apache.commons.lang.StringUtils;
 import org.junit.Test;
 
-import fr.openstreetmap.search.autocomplete.OSMAutocompleteUtils;
-import fr.openstreetmap.search.autocomplete.OSMAutocompleteUtils.MatchData;
+import fr.openstreetmap.search.simple.OSMAutocompleteUtils;
+import fr.openstreetmap.search.simple.OSMAutocompleteUtils.MatchData;
 
 public class OSMAutocompleteUtilsTest {
     @Test

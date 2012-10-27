@@ -84,11 +84,11 @@ public class MultipleWordsAutocompleter {
     public int[] distanceMap = new int[]{0,0,0, 1, 1, 1};
 
     public static class DebugInfo {
-        String shardName;
-        List<Autocompleter.DebugInfo> tokensDebugInfo = new ArrayList<Autocompleter.DebugInfo>();
-        long totalTokensMatchTime;
-        long intersectionTime;
-        long filterTime;
+    	public String shardName;
+        public List<Autocompleter.DebugInfo> tokensDebugInfo = new ArrayList<Autocompleter.DebugInfo>();
+        public long totalTokensMatchTime;
+        public long intersectionTime;
+        public long filterTime;
     }
 
     public static class MultiWordAutocompleterEntry implements Comparable<MultiWordAutocompleterEntry>{

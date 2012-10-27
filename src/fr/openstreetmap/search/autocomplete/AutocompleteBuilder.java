@@ -50,8 +50,8 @@ public class AutocompleteBuilder {
         public ScoredToken(String token, long score) {
             this.score = score; this.token = token;
         }
-        String token;
-        long score;
+        public String token;
+        public long score;
         @Override
         public int compareTo(ScoredToken arg0) {
             int tDiff = this.token.compareTo(arg0.token);
@@ -276,7 +276,7 @@ public class AutocompleteBuilder {
                 " dataSize=" + outputDataFile.length() + " radixSize=" + outputFile.length());
     }
 
-    List<String> clippedWords = new ArrayList<String>();
+    public List<String> clippedWords = new ArrayList<String>();
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
     private void emitKey(String key, List<EntryVal> values) throws IOException {

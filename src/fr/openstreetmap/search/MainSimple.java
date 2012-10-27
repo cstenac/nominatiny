@@ -1,4 +1,4 @@
-package fr.openstreetmap.search.autocomplete;
+package fr.openstreetmap.search;
 
 import java.io.File;
 import java.io.RandomAccessFile;
@@ -18,7 +18,11 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
-public class Main {
+import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter;
+import fr.openstreetmap.search.simple.AdminDesc;
+import fr.openstreetmap.search.simple.AutocompletionServlet;
+
+public class MainSimple {
     public static void main(String[] args) throws Exception {
         BasicConfigurator.configure();
         File shardsDir = new File(args[0]);

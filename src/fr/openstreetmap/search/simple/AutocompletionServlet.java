@@ -1,4 +1,4 @@
-package fr.openstreetmap.search.autocomplete;
+package fr.openstreetmap.search.simple;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -26,16 +26,17 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.json.JSONWriter;
 
+import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter;
 import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.DebugInfo;
 import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWordAutocompleterEntry;
-import fr.openstreetmap.search.autocomplete.OSMAutocompleteUtils.MatchData;
+import fr.openstreetmap.search.simple.OSMAutocompleteUtils.MatchData;
 
 public class AutocompletionServlet extends HttpServlet{
     private static final long serialVersionUID = 1L;
-    List<MultipleWordsAutocompleter> shards;
+    public List<MultipleWordsAutocompleter> shards;
     ExecutorService executor;
     Set<String> stopWords = new HashSet<String>();
-    Map<Long, AdminDesc> adminRelations;
+    public Map<Long, AdminDesc> adminRelations;
     
     public AutocompletionServlet(ExecutorService executor) {
         this.executor = executor;
@@ -87,7 +88,7 @@ public class AutocompletionServlet extends HttpServlet{
 
         List<String> stopped = new ArrayList<String>();
         final List<String> tokensList = new ArrayList<String>();
-        CreateFromDBOutput.tokenize(query, tokensList);
+        Builder.tokenize(query, tokensList);
 
         ListIterator<String> it = tokensList.listIterator();
         while (it.hasNext()) {
@@ -100,7 +101,7 @@ public class AutocompletionServlet extends HttpServlet{
                 stopped.add(token);
                 it.remove();
             }
-            if (CreateFromDBOutput.definitelyStopWords.contains(token)) {
+            if (Builder.definitelyStopWords.contains(token)) {
                 stopped.add(token);
                 it.remove();
             }
@@ -165,7 +166,7 @@ public class AutocompletionServlet extends HttpServlet{
 
                 for (String stop : stopped) {
                     String decodedName = fr.decodedData.name.toLowerCase();
-                    StringTokenizer st = CreateFromDBOutput.getTokenizer(decodedName);
+                    StringTokenizer st = Builder.getTokenizer(decodedName);
                     while (st.hasMoreTokens()) {
                         String nt = st.nextToken();
                         if (nt.equals(stop)) {

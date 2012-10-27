@@ -1,4 +1,4 @@
-package fr.openstreetmap.search.autocomplete;
+package fr.openstreetmap.search.simple;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
