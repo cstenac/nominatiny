@@ -14,7 +14,7 @@ import fr.openstreetmap.search.tree.RadixTreeFuzzyLookup;
  * Performs auto-completion of a single token
  * This class is not thread safe.
  */
-public class Autocompleter {
+public class Autocompleter implements Searcher {
 	ByteBuffer dataBuffer;
 
 	RadixTree rt = new RadixTree();
@@ -32,85 +32,10 @@ public class Autocompleter {
         rt.byteArrayMode = true;
     }
 	
-	public static class DebugInfo {
-	    public String value;
-		public long radixTreeMatchTime;
-		public long radixTreeMatches;
-		public long listsDecodingTime;
-		public long decodedMatches;
-	}
-
-	public static class AutocompleterEntry implements Comparable<AutocompleterEntry>{
-		AutocompleterEntry(long offset, int distance, long score) {
-			this.offset = offset;
-			this.distance = distance;
-			this.score = score;
-		}
-		public String correctedPrefix;
-		public int distance;
-		public long offset;
-		public long score;
-		@Override
-		public int compareTo(AutocompleterEntry o) {
-			if (distance < o.distance) return -1;
-			if (distance > o.distance) return 1;
-			if (score > o.score) return -1;
-			if (score < o.score) return 1;
-			return 0;
-		}
-	}
-	
-	public void getOffsets(String query, int maxDistance, DebugInfo di, LongList offsets, LongList scores, LongList distances,
-	                       List<String> correctedPrefixes) {
-	    long t0 = 0, t1 = 0;
-        RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
-        
-        if (di != null) t0 = System.nanoTime();
-        rtfl.match(query, maxDistance);
-        if (di != null) {
-            t1 = System.nanoTime();
-            di.radixTreeMatchTime = (t1 - t0)/1000;
-            di.radixTreeMatches = rtfl.getMatches().size();
-        }
-        
-//      System.out.println("QUERY "  + query + " has " + rtfl.matches.size() +  "approximate matches");
-        
-        BinaryUtils.VInt vint = new BinaryUtils.VInt();
-        
-        for (int i = 0; i < rtfl.getMatches().size(); i++) {
-            RadixTreeFuzzyLookup.ApproximateMatch match = rtfl.getMatches().get(i);
-//          System.out.println("Value " + match.byteArrayValue.length);
-            int pos = 0;
-            BinaryUtils.readVInt(match.byteArrayValue, 0, vint);
-//          System.out.println("Found " + vint.value + " offsets");
-            pos = vint.codeSize;
-            int nbVals = (int)vint.value;
-//          System.out.println("*** Approx match:" + rtfl.matches.get(i).key + " d=" + rtfl.matches.get(i).distance + " nvals=" + nbVals);
-
-            for (int j = 0; j < nbVals; j++) {
-                BinaryUtils.readVInt(match.byteArrayValue, pos, vint);
-                pos += vint.codeSize;
-                long v = vint.value;
-                BinaryUtils.readVInt(match.byteArrayValue, pos, vint);
-                pos += vint.codeSize;
-                long s = vint.value;
-
-                offsets.add(v);
-                distances.add(match.distance);
-                scores.add(s);
-                correctedPrefixes.add(match.key);
-            }
-        }
-        if (di != null) {
-            di.listsDecodingTime = (System.nanoTime() - t1)/1000;
-            di.decodedMatches = offsets.size();
-        }
-	}
-
-	public List<AutocompleterEntry> getOffsets(String query, int maxDistance, DebugInfo di) {
+	public List<Entry> getOffsets(String query, int maxDistance, DebugInfo di) {
 		long t0 = 0, t1 = 0;
 		
-		List<AutocompleterEntry> ret = new ArrayList<Autocompleter.AutocompleterEntry>(2000);
+		List<Entry> ret = new ArrayList<Autocompleter.Entry>(2000);
 		RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
 		
 		if (di != null) t0 = System.nanoTime();
@@ -155,7 +80,7 @@ public class Autocompleter {
 				long s = vint.value;
 //				System.out.println("s=" + vint.value + " cs=" + vint.codeSize);
 
-				AutocompleterEntry ae = new AutocompleterEntry(v, match.distance, s);
+				Entry ae = new Entry(v, match.distance, s);
 				ae.correctedPrefix = match.key;
 //				System.out.println("**" + v + " " + s + " " + match.key);
 				ret.add(ae);
@@ -169,7 +94,6 @@ public class Autocompleter {
 
 		//        }
 	}
-
 	
 	/** Get the data associated to an autocomplete entry */
 	public String getData(long offset) throws IOException {
