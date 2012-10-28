@@ -93,6 +93,10 @@ public class AdminDesc implements Comparable<AdminDesc>{
                 if (chunks.length > 4) {
                     //                    System.out.println(line);
                 }
+                
+                if (chunks[3].length() == 0) {
+                	continue;
+                }
 
                 long id = Long.parseLong(chunks[0]);
                 long pop = 0;

@@ -26,14 +26,14 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.json.JSONWriter;
 
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter;
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.DebugInfo;
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWordAutocompleterEntry;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher.DebugInfo;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher.MultiWordAutocompleterEntry;
 import fr.openstreetmap.search.simple.OSMAutocompleteUtils.MatchData;
 
 public class PolygonsServlet extends HttpServlet{
 	private static final long serialVersionUID = 1L;
-	public MultipleWordsAutocompleter shard;
+	public MultiWordSearcher shard;
 
 	static class FinalResult {
 		public FinalResult(MultiWordAutocompleterEntry ae) {
@@ -51,9 +51,9 @@ public class PolygonsServlet extends HttpServlet{
 	}
 
 	static class ShardLookup {
-		MultipleWordsAutocompleter shard;
+		MultiWordSearcher shard;
 		List<MultiWordAutocompleterEntry> entries;
-		MultipleWordsAutocompleter.DebugInfo di;
+		MultiWordSearcher.DebugInfo di;
 	}
 
 	@Override

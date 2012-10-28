@@ -42,7 +42,7 @@ public class AutocompleteBuilderTest {
         
         Autocompleter a = new Autocompleter(radixBuffer, dataBuffer);
         
-        for (Autocompleter.AutocompleterEntry ae : a.getOffsets("tesst", 1, null)) {
+        for (Autocompleter.Entry ae : a.getOffsets("tesst", 1, null)) {
         	System.out.println(" " + ae.offset + " - " + ae.score + " " + ae.distance + " correct prefix=" + ae.correctedPrefix);
         	System.out.println("   " + a.getData(ae.offset));
         }

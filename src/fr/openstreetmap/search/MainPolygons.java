@@ -18,7 +18,8 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter;
+import fr.openstreetmap.search.autocomplete.AutocompleteMultiWordSearcher;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher;
 import fr.openstreetmap.search.polygons.PolygonsServlet;
 import fr.openstreetmap.search.simple.AdminDesc;
 
@@ -40,7 +41,7 @@ public class MainPolygons {
 		MappedByteBuffer dataBuffer = dataChannel.map(MapMode.READ_ONLY, 0, dataChannel.size());
 		dataBuffer.load();
 
-		MultipleWordsAutocompleter shard = new MultipleWordsAutocompleter();
+		AutocompleteMultiWordSearcher shard = new AutocompleteMultiWordSearcher();
 		shard.radixBuffer = radixBuffer;
 		shard.dataBuffer = dataBuffer;
 

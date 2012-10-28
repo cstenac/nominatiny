@@ -9,8 +9,8 @@ import java.util.Collections;
 import java.util.List;
 
 import fr.openstreetmap.search.autocomplete.Autocompleter;
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter;
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWordAutocompleterEntry;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher.MultiWordAutocompleterEntry;
 
 
 public class MultiAutocompleterTest {
@@ -33,7 +33,7 @@ public class MultiAutocompleterTest {
         FileChannel dataChannel = new RandomAccessFile(new File("/data/homes/stenac/public_html/osm/data/data"), "r").getChannel();
         MappedByteBuffer dataBuffer = dataChannel.map(MapMode.READ_ONLY, 0, dataChannel.size());
 
-        MultipleWordsAutocompleter mwa = new MultipleWordsAutocompleter();
+        MultiWordSearcher mwa = new MultiWordSearcher();
         mwa.radixBuffer = radixData;
         mwa.dataBuffer = dataBuffer;
 
@@ -55,7 +55,7 @@ public class MultiAutocompleterTest {
         System.out.println("TIME-OLD IS " + (after-before));
 
 
-        List<Autocompleter.AutocompleterEntry> aelist = mwa.autocompleteOld(tokens, 1, null);
+        List<Autocompleter.Entry> aelist = mwa.autocompleteOld(tokens, 1, null);
         //        System.out.println("OU1: " + aelist.size());
         Collections.sort(aelist);
         //        

@@ -26,16 +26,17 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.json.JSONWriter;
 
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter;
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.DebugInfo;
-import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWordAutocompleterEntry;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher.DebugInfo;
+import fr.openstreetmap.search.autocomplete.MultiWordSearcher.MultiWordAutocompleterEntry;
 import fr.openstreetmap.search.simple.OSMAutocompleteUtils.MatchData;
 
 public class AutocompletionServlet extends HttpServlet{
     private static final long serialVersionUID = 1L;
-    public List<MultipleWordsAutocompleter> shards;
+    public List<MultiWordSearcher> shards;
     ExecutorService executor;
-    Set<String> stopWords = new HashSet<String>();
+    public int minTokenLength = 3;
+    public Set<String> stopWords = new HashSet<String>();
     public Map<Long, AdminDesc> adminRelations;
     
     public AutocompletionServlet(ExecutorService executor) {
@@ -49,7 +50,6 @@ public class AutocompletionServlet extends HttpServlet{
             if (line == null) break;
             stopWords.add(line.replace("\n", ""));
         }
-        stopWords.add("france");
     }
 
     static class FinalResult {
@@ -68,9 +68,9 @@ public class AutocompletionServlet extends HttpServlet{
     }
 
     static class ShardLookup {
-        MultipleWordsAutocompleter shard;
+        MultiWordSearcher shard;
         List<MultiWordAutocompleterEntry> entries;
-        MultipleWordsAutocompleter.DebugInfo di;
+        MultiWordSearcher.DebugInfo di;
     }
 
     @Override
@@ -80,6 +80,7 @@ public class AutocompletionServlet extends HttpServlet{
         int returnLimit = getIntParam(req, "limit", 25);
         int boostLimit = getIntParam(req, "boostLimit", 200);
         int debug = getIntParam(req, "debug", 1);
+        final int maxDistance = getIntParam(req, "maxDistance", 1);
 
         long startup = System.nanoTime();
         String query = req.getParameter("q");
@@ -97,7 +98,7 @@ public class AutocompletionServlet extends HttpServlet{
                 stopped.add(token);
                 it.remove();
             }
-            if (token.length() < 3) {
+            if (token.length() < minTokenLength) {
                 stopped.add(token);
                 it.remove();
             }
@@ -113,21 +114,21 @@ public class AutocompletionServlet extends HttpServlet{
 
 
             List<Future<ShardLookup>> futures = new ArrayList<Future<ShardLookup>>();
-            for (MultipleWordsAutocompleter shard : shards) {
+            for (MultiWordSearcher shard : shards) {
                 final ShardLookup sl = new ShardLookup();
-                sl.di = new MultipleWordsAutocompleter.DebugInfo();
+                sl.di = new MultiWordSearcher.DebugInfo();
                 sl.di.shardName = shard.shardName;
                 sl.shard = shard;
                 futures.add(executor.submit(new Callable<ShardLookup>() {
                     @Override
                     public ShardLookup call() throws Exception {
-                        sl.entries = sl.shard.autocompleteLong(tokensList, 1, sl.di);
+                        sl.entries = sl.shard.autocompleteLong(tokensList, maxDistance, sl.di);
                         return sl;
                     }
                 }));
             }
-            List<MultipleWordsAutocompleter.DebugInfo> debugs = new ArrayList<MultipleWordsAutocompleter.DebugInfo>();
-            List<MultiWordAutocompleterEntry> results = new ArrayList<MultipleWordsAutocompleter.MultiWordAutocompleterEntry>();
+            List<MultiWordSearcher.DebugInfo> debugs = new ArrayList<MultiWordSearcher.DebugInfo>();
+            List<MultiWordAutocompleterEntry> results = new ArrayList<MultiWordSearcher.MultiWordAutocompleterEntry>();
             for (Future<ShardLookup> future: futures) {
                 ShardLookup sl = future.get();
                 for (MultiWordAutocompleterEntry entry : sl.entries) {
