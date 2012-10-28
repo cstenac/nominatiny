@@ -15,7 +15,7 @@ import org.apache.log4j.Logger;
 import au.com.bytecode.opencsv.CSVReader;
 
 import fr.openstreetmap.search.autocomplete.AutocompleteBuilder;
-import fr.openstreetmap.search.autocomplete.AutocompleteBuilder.ScoredToken;
+import fr.openstreetmap.search.autocomplete.IndexBuilder.ScoredToken;
 import fr.openstreetmap.search.simple.AdminDesc;
 import fr.openstreetmap.search.text.StringNormalizer;
 

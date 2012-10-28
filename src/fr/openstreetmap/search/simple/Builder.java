@@ -27,7 +27,9 @@ import org.apache.log4j.Logger;
 import au.com.bytecode.opencsv.CSVReader;
 
 import fr.openstreetmap.search.autocomplete.AutocompleteBuilder;
-import fr.openstreetmap.search.autocomplete.AutocompleteBuilder.ScoredToken;
+import fr.openstreetmap.search.autocomplete.CompleteWordBuilder;
+import fr.openstreetmap.search.autocomplete.IndexBuilder;
+import fr.openstreetmap.search.autocomplete.IndexBuilder.ScoredToken;
 import fr.openstreetmap.search.text.StringNormalizer;
 
 /**
@@ -41,23 +43,31 @@ import fr.openstreetmap.search.text.StringNormalizer;
 public class Builder {
     Map<Long, AdminDesc> adminRelations;
 
-    Map<String, AutocompleteBuilder> builders = new HashMap<String, AutocompleteBuilder>();
+    Map<String, IndexBuilder> builders = new HashMap<String, IndexBuilder>();
     File outDir;
     Writer rawOut;
+    
+    boolean prefix;
 
     public static Set<String> definitelyStopWords = new HashSet<String>();
     static {
         // No definitely stop words yet :)
     }
 
-    private AutocompleteBuilder newBuilder(String name) throws IOException {
+    private IndexBuilder newBuilder(String name) throws IOException {
         File f = new File(outDir, name);
         f.mkdirs();
 
-        AutocompleteBuilder builder = new AutocompleteBuilder(f);
-        builder.nbValues = 4000000;
+        if (prefix) {
+        	AutocompleteBuilder builder = new AutocompleteBuilder(f);
+        	builder.nbValues = 4000000;
+        	return builder;
+        } else {
+        	CompleteWordBuilder builder = new CompleteWordBuilder(f);
+        	builder.nbValues = 4000000;
+        	return builder;
 
-        return builder;
+        }
     }
 
     private void  addBuilder(String name) throws IOException {
@@ -296,7 +306,7 @@ public class Builder {
 
         for (String name : builders.keySet()) {
             System.out.println("Flushing builder " + name);
-            AutocompleteBuilder builder = builders.get(name);
+            IndexBuilder builder = builders.get(name);
             builder.flush();
             FileWriter fwr = new FileWriter(outDir + "/" + name + "/stopwords");
             for (String s : builder.clippedWords) {
@@ -312,8 +322,10 @@ public class Builder {
         BasicConfigurator.configure();
         File inDir  = new File(args[0]);
         String outDir = args[1];
+        boolean prefix = Boolean.parseBoolean(args[2]);
 
         Builder instance = new Builder(new File(outDir));
+        instance.prefix = prefix;
         
         instance.adminRelations = AdminDesc.parseCityList(new File(inDir, "admin-list"));
         AdminDesc.parseCityParents(new File(inDir, "admin-parents"), instance.adminRelations);

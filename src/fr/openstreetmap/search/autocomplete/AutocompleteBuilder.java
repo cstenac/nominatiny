@@ -25,7 +25,10 @@ import org.apache.log4j.Logger;
 import fr.openstreetmap.search.binary.BinaryStreamEncoder;
 import fr.openstreetmap.search.tree.RadixTreeWriter;
 
-public class AutocompleteBuilder {
+/**
+ * Builds the data for an autocompletion searcher
+ */
+public class AutocompleteBuilder extends IndexBuilder {
 
     File temporaryFileUnsorted;
     File temporaryFileSorted;
@@ -46,26 +49,6 @@ public class AutocompleteBuilder {
     
     Writer freqFileWriter;
     
-    public static class ScoredToken implements Comparable<ScoredToken>{
-        public ScoredToken(String token, long score) {
-            this.score = score; this.token = token;
-        }
-        public String token;
-        public long score;
-        @Override
-        public int compareTo(ScoredToken arg0) {
-            int tDiff = this.token.compareTo(arg0.token);
-            if (tDiff != 0) return tDiff;
-            if (score > arg0.score) return 1;
-            if (score < arg0.score) return -1;
-            return 0;
-        }
-        
-        public String toString() {
-            return token + "(" + score + ")";
-        }
-    }
-
     public AutocompleteBuilder(File outputDir) throws IOException {
         this.temporaryFileSorted  = new File(outputDir, "tmp.sorted");
         this.temporaryFileUnsorted = new File(outputDir, "tmp.unsorted");
@@ -80,57 +63,40 @@ public class AutocompleteBuilder {
         bse = new BinaryStreamEncoder(dataOutputBuffered);
     }
 
-    public void addMultiEntry(String[] entries, String data, long score) throws IOException {
-        byte[] utf8Data = data.getBytes("utf8");
+//    public void addMultiEntry(String[] entries, String data, long score) throws IOException {
+//        byte[] utf8Data = data.getBytes("utf8");
+//
+//        long offset = bse.getWritten();
+//        bse.writeVInt(utf8Data.length);
+//        bse.writeBytes(utf8Data);
+//
+//        for (String entry: entries) {
+//            for (int i = minEntrySize; i <= entry.length(); i++) {
+//                temporaryFileWriter.write(entry.substring(0, i)+ "\t" + offset + "\t" + score + "\n");
+//            }
+//        }
+//    }
+//    
+//    public void addMultiEntry(String[] entries, byte[] data, long[] scores) throws IOException {
+//        long offset = bse.getWritten();
+//        bse.writeVInt(data.length);
+//        bse.writeBytes(data);
+//
+//        for (int eidx = 0; eidx < entries.length; eidx++) {
+//            for (int i = minEntrySize; i <= entries[eidx].length(); i++) {
+//                temporaryFileWriter.write(entries[eidx].substring(0, i)+ "\t" + offset + "\t" + scores[eidx] + "\n");
+//            }
+//        }
+//    }
+//    
+//    Map<String, ScoredToken> dedupMap = new HashMap<String, AutocompleteBuilder.ScoredToken>();
 
-        long offset = bse.getWritten();
-        bse.writeVInt(utf8Data.length);
-        bse.writeBytes(utf8Data);
-
-        for (String entry: entries) {
-            for (int i = minEntrySize; i <= entry.length(); i++) {
-                temporaryFileWriter.write(entry.substring(0, i)+ "\t" + offset + "\t" + score + "\n");
-            }
-        }
-    }
-    
-    public void addMultiEntry(String[] entries, byte[] data, long[] scores) throws IOException {
+    @Override
+    public void addEntry(List<ScoredToken> scoredTokens, byte[] data) throws IOException {
         long offset = bse.getWritten();
         bse.writeVInt(data.length);
         bse.writeBytes(data);
-
-        for (int eidx = 0; eidx < entries.length; eidx++) {
-            for (int i = minEntrySize; i <= entries[eidx].length(); i++) {
-                temporaryFileWriter.write(entries[eidx].substring(0, i)+ "\t" + offset + "\t" + scores[eidx] + "\n");
-            }
-        }
-    }
-    
-    Map<String, ScoredToken> dedupMap = new HashMap<String, AutocompleteBuilder.ScoredToken>();
-
-    
-    public void addEntry(List<ScoredToken> scoredTokens, byte[] data, boolean dedup) throws IOException {
-        long offset = bse.getWritten();
-        bse.writeVInt(data.length);
-        bse.writeBytes(data);
-        
-        if (dedup) {
-            dedupMap.clear();
-            for (ScoredToken sc : scoredTokens) {
-                ScoredToken already = dedupMap.get(sc.token);
-                if (already ==null) {
-                    dedupMap.put(sc.token, sc);
-                } else if (already.score < sc.score) {
-                    // Better score, replace
-                    dedupMap.put(sc.token, sc);
-                } else {
-//                    System.out.println("Eliminate dup on " + sc  + " from "+ StringUtils.join(scoredTokens, "-"));
-                }
-            }
-            scoredTokens.clear();
-            scoredTokens.addAll(dedupMap.values());
-        }
-        
+                
         for (ScoredToken sc : scoredTokens) {
             for (int i = minEntrySize; i <= sc.token.length(); i++) {
                 temporaryFileWriter.write(sc.token.substring(0, i)+ "\t" + offset + "\t" + sc.score + "\n");
@@ -138,73 +104,22 @@ public class AutocompleteBuilder {
         }
     }
 
-    public void addEntry(String entry, String data, long score) throws IOException {
-        byte[] utf8Data = data.getBytes("utf8");
+//    public void addEntry(String entry, String data, long score) throws IOException {
+//        byte[] utf8Data = data.getBytes("utf8");
+//
+//        long offset = bse.getWritten();
+//        if (entry.startsWith("teac")) {
+//            System.out.println("WRITE " + entry + " AT " + offset);
+//        }
+//        bse.writeVInt(utf8Data.length);
+//        bse.writeBytes(utf8Data);
+//
+//        for (int i = minEntrySize; i <= entry.length(); i++) {
+//            temporaryFileWriter.write(entry.substring(0, i)+ "\t" + offset + "\t" + score + "\n");
+//        }
+//    }
 
-        long offset = bse.getWritten();
-        if (entry.startsWith("teac")) {
-            System.out.println("WRITE " + entry + " AT " + offset);
-        }
-        bse.writeVInt(utf8Data.length);
-        bse.writeBytes(utf8Data);
-
-        for (int i = minEntrySize; i <= entry.length(); i++) {
-            temporaryFileWriter.write(entry.substring(0, i)+ "\t" + offset + "\t" + score + "\n");
-        }
-    }
-
-    static class EntryVal implements Comparable<EntryVal>{
-        EntryVal(long value, long score) {
-            this.value = value; 
-            this.score = score;
-        }
-        long value;
-        long score;
-        @Override
-        public int compareTo(EntryVal o) {
-            if (score > o.score) return -1;
-            if (score < o.score) return 1;
-            return 0;
-        }
-    }
-
-    static public int execAndLog(String[] args, String[] env) throws IOException, InterruptedException {
-        Process p = Runtime.getRuntime().exec(args, env);
-        Thread tout = new LoggingStreamEater(p.getInputStream(), Level.INFO);
-        tout.start();
-        Thread terr = new LoggingStreamEater(p.getErrorStream(), Level.WARN);
-        terr.start();
-        int rv = p.waitFor();
-        tout.join();
-        terr.join();
-        return rv;
-    }
-    /* Eat a stream and log its output */
-    static class LoggingStreamEater extends Thread {
-        LoggingStreamEater(InputStream is, Level level) {
-            this.is = is;
-            this.level = level;
-        }
-        @Override
-        public void run() {
-            try {
-                BufferedReader br = new BufferedReader(new InputStreamReader(is));
-                while (true) {
-                    String line = br.readLine();
-                    if (line == null) break;
-                    logger.log(level, line);
-                }
-                br.close();
-            } catch (IOException e) {         
-                logger.error("", e);
-            }
-        }
-        private Level level;
-        private InputStream is;
-        private static Logger logger = Logger.getLogger("process");
-    }
-
-
+   
     public void flush() throws IOException, InterruptedException{
         temporaryFileWriter.flush();
         temporaryFileWriter.close();
