@@ -1,4 +1,4 @@
-package fr.openstreetmap.search.autocomplete;
+package fr.openstreetmap.search.autocomplete.test;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import fr.openstreetmap.search.autocomplete.Autocompleter;
+import fr.openstreetmap.search.autocomplete.Searcher;
 import fr.openstreetmap.search.autocomplete.Autocompleter.AutocompleterEntry;
 import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.DebugInfo;
 import fr.openstreetmap.search.autocomplete.MultipleWordsAutocompleter.MultiWordAutocompleterEntry;
@@ -74,7 +76,7 @@ public class FailedAttempts {
 
     static class ObjectInvertedList {
         int originalOffsetInInvertedListsList;
-        List<AutocompleterEntry> list = new ArrayList<Autocompleter.AutocompleterEntry>(1000);
+        List<Entry> list = new ArrayList<Autocompleter.Entry>(1000);
 
         Map<Long, Integer> offsetsMap;// = new HashMap<Long, Integer>();
 
@@ -127,7 +129,7 @@ public class FailedAttempts {
         }
 
         void append(long offset, long score, long distance, String corrected) {
-            AutocompleterEntry ae = new AutocompleterEntry(offset, (int)distance, score);
+            Entry ae = new Entry(offset, (int)distance, score);
             ae.correctedPrefix = corrected;
             list.add(ae);
         }

@@ -1,4 +1,4 @@
-package fr.openstreetmap.search.autocomplete;
+package fr.openstreetmap.search.autocomplete.test;
 
 /**
  * The goal of this map is to speed up the put operation. 
