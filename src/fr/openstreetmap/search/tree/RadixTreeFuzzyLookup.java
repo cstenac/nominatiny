@@ -123,10 +123,10 @@ public class RadixTreeFuzzyLookup {
                 getChildrenPositions(childrenOfRadixListPos, children);
                 //                System.out.println(indent(strPos) + " matchInRadix EOR: " + children.size()  + " children matchRec at=" + currentDistance);
 
-                for (long childPos : children) {
+                for (int ch = 0; ch < children.size(); ch++) {
                     //                    System.out.println(indent(strPos) + " matchInRadix EOR: GO TO CHILD at " + childPos + " at=" + currentDistance);
 
-                    matchRec(childPos, strPos, str, currentDistance, corrected, (char)0, (char)0);
+                    matchRec(children.get(ch), strPos, str, currentDistance, corrected, (char)0, (char)0);
                 }
                 //                System.out.println(indent(strPos) + " matchInRadix EOR: done children");
 
@@ -203,11 +203,12 @@ public class RadixTreeFuzzyLookup {
                     getChildrenPositions(posAfterValue, children);
 
                     /* Recurse without increasing the distance further */
-                    for (long childPos : children) {
-                        corrected.add(c);
-                        matchRec(childPos, strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
-                        corrected.remove(corrected.size() - 1);
+                    corrected.add(c);
+                    for (int ch = 0; ch < children.size(); ch++) {
+                        matchRec(children.get(ch), strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
                     }
+                    corrected.remove(corrected.size() - 1);
+
                 }
 
                 //              currentDistance++;
@@ -231,12 +232,12 @@ public class RadixTreeFuzzyLookup {
             LongList children = new LongList();
             getChildrenPositions(posAfterValue, children);
 
-            for (long childPos : children) {
-                corrected.add(c);
-                matchRec(childPos, strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
-                corrected.remove(corrected.size() - 1);
-
+            corrected.add(c);
+            for (int ch = 0; ch < children.size(); ch++) {
+                matchRec(children.get(ch), strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
             }
+            corrected.remove(corrected.size() - 1);
+
         } else {
             /* There is a value here, so if we are at end of the string, but don't match, we still record a match at distance + 1 */
             if (strPos + 1 >= str.length()) {
@@ -259,28 +260,29 @@ public class RadixTreeFuzzyLookup {
 
                 // Try deletion: try the same current leter in the children
                 corrected.add(c);
-                for (long childPos : children) {
-                    matchRec(childPos, strPos, str, currentDistance + 1, corrected, (char)0, (char)0);
+                for (int ch = 0; ch < children.size(); ch++) {
+                    matchRec(children.get(ch), strPos, str, currentDistance + 1, corrected, (char)0, (char)0);
                 }
                 corrected.remove(corrected.size() - 1);
 //                System.out.println(indent(strPos ) + " NIVO NO-match SUBST ");//+ " trying to match=" + str.charAt(strPos));
 
                 // Substitution: Ignore the current letter, go to children and advance string
-                for (long childPos : children) {
-                    corrected.add(c);
-                    matchRec(childPos, strPos + 1, str, currentDistance + 1, corrected, (char)0, (char)0);
-                    corrected.remove(corrected.size() - 1);
+                corrected.add(c);
+                for (int ch = 0; ch < children.size(); ch++) {
+                    matchRec(children.get(ch), strPos + 1, str, currentDistance + 1, corrected, (char)0, (char)0);
                 }
+                corrected.remove(corrected.size() - 1);
+
 //                System.out.println(indent(strPos ) + " NIVO NO-match PERM ");//+ " trying to match=" + str.charAt(strPos));
 
                 // Permutation: Remember the current letter, current expected letter, advance both,
                 // and we'll check next time
                 if (strPos < str.length()) {
-                    for (long childPos : children) {
-                        corrected.add(c);
-                        matchRec(childPos, strPos + 1, str, currentDistance + 1, corrected, c, str.charAt(strPos));
-                        corrected.remove(corrected.size() - 1);
+                    corrected.add(c);
+                    for (int ch = 0; ch < children.size(); ch++) {
+                        matchRec(children.get(ch), strPos + 1, str, currentDistance + 1, corrected, c, str.charAt(strPos));
                     }
+                    corrected.remove(corrected.size() - 1);
                 }
 //                System.out.println(indent(strPos ) + " NIVO NO-match DONE");//+ " trying to match=" + str.charAt(strPos));
 
@@ -351,11 +353,11 @@ public class RadixTreeFuzzyLookup {
             LongList children = new LongList();
             getChildrenPositions(currentNodePos + 3, children);
             //           System.out.println(indent(strPos) + " match");
-            for (long childPos : children) {
-                corrected.add(c);
-                matchRec(childPos, strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
-                corrected.remove(corrected.size() - 1);
+            corrected.add(c);
+            for (int ch = 0; ch < children.size(); ch++) {
+                matchRec(children.get(ch), strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
             }
+            corrected.remove(corrected.size() - 1);
         } else {
             if (currentDistance < maxDistance ){
                 if (strPos + 1 <= str.length()) {
@@ -370,30 +372,31 @@ public class RadixTreeFuzzyLookup {
                 getChildrenPositions(currentNodePos + 3, children);
                 // Try insertion: ignore the current letter, go to children
 
-                for (long childPos : children) {
-                    corrected.add(c);
+                corrected.add(c);
+                for (int ch = 0; ch < children.size(); ch++) {
                     //               System.out.println(indent(strPos ) + " trying insertion");
-                    matchRec(childPos, strPos, str, currentDistance + 1, corrected, (char)0, (char)0);
-                    corrected.remove(corrected.size() - 1);
+                    matchRec(children.get(ch), strPos, str, currentDistance + 1, corrected, (char)0, (char)0);
                 }
+                corrected.remove(corrected.size() - 1);
 
                 // Substitution: Ignore the current letter, go to children and advance string
-                for (long childPos : children) {
+                corrected.add(c);
+                for (int ch = 0; ch < children.size(); ch++) {
                     //               System.out.println(indent(strPos) + " trying substitution");
-                    corrected.add(c);
-                    matchRec(childPos, strPos + 1, str, currentDistance + 1, corrected, (char)0, (char)0);
-                    corrected.remove(corrected.size() - 1);
+                    matchRec(children.get(ch), strPos + 1, str, currentDistance + 1, corrected, (char)0, (char)0);
                 }
+                corrected.remove(corrected.size() - 1);
 
                 // Permutation: Remember the current letter, current expected letter, advance both,
                 // and we'll check next time
                 if (strPos < str.length()) {
                     //               System.out.println(indent(strPos) + " trying permutation on " + currentDistance + " cK=" + curKey(corrected) + " permut=" + c + " and " + str.charAt(strPos));
-                    for (long childPos : children) {
-                        corrected.add(c);
-                        matchRec(childPos, strPos + 1, str, currentDistance + 1, corrected, c, str.charAt(strPos));
-                        corrected.remove(corrected.size() - 1);
+                    corrected.add(c);
+                    for (int ch = 0; ch < children.size(); ch++) {
+                        matchRec(children.get(ch), strPos + 1, str, currentDistance + 1, corrected, c, str.charAt(strPos));
                     }
+                    corrected.remove(corrected.size() - 1);
+
                     //               System.out.println(indent(strPos) + " DONE trying permutation on " + currentDistance + " cK=" + curKey(corrected) + " permut=" + c + " and " + str.charAt(strPos));
 
                 }
@@ -428,10 +431,10 @@ public class RadixTreeFuzzyLookup {
 //        		System.out.println(indent(strPos) + " FUZZY cD=" + currentDistance + " s=" + str + " p=" + strPos + " at=" + currentNodePos + " curKey=" + curKey(corrected) + " SUBSTMODE=" + substitutionExpectedChar);
 
         // EOF --> Do not cancel, we must keep going down, until we reach the maximum distance
-        if (strPos +1 > str.length()) {
+//        if (strPos +1 > str.length()) {
             //            System.out.println(indent(strPos) + " FUZZY eOS !!");
             //            return;
-        }
+//        }
         if (currentDistance > maxDistance) { // && substitutionFoundChar == (char)0) {
             //            System.out.println(indent(strPos) + " FUZZY Abort distance !");
             return;
@@ -495,8 +498,8 @@ public class RadixTreeFuzzyLookup {
             // This node always matches, recurse on children
             LongList children = new LongList();
             getChildrenPositions(currentNodePos + 1, children);
-            for (long childPos : children) {
-                matchRec(childPos, strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
+            for (int ch = 0; ch < children.size(); ch++) {
+                matchRec(children.get(ch), strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
             }
         } else {
             System.out.println(indent(strPos) + " UNKNONWN TYPE IS " + nodeType);

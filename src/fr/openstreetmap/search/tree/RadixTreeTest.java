@@ -22,7 +22,7 @@ public class RadixTreeTest {
 //    }
     
     @Test
-//    @Ignore
+    @Ignore
     public void big() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         RadixTreeWriter rtw = new RadixTreeWriter(baos);
@@ -74,7 +74,7 @@ public class RadixTreeTest {
     }
     
     @Test
-//    @Ignore
+    @Ignore
     public void fyzzy( ) throws IOException{
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -163,7 +163,7 @@ public class RadixTreeTest {
     } 
     
     @Test
-//    @Ignore
+    @Ignore
     public void aprefix( ) throws IOException{
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -282,6 +282,35 @@ public class RadixTreeTest {
         for (ApproximateMatch am : rtfl.getMatches()) {
             System.out.println("" + am.key + " - " + am.distance);
         }
+
+    }
+    
+    @Test
+    public void perf() throws Exception{
+        File f=  new File("/data/stenac/osm/search/data/out/france/radix");
+        RadixTree rt = new RadixTree();
+        rt.buffer = FileUtils.readFileToByteArray(f);
+        rt.byteArrayMode = true;
+        rt.totalSize = rt.buffer.length;
+
+
+        for (int i = 0; i < 3000; i++) {
+            RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
+            rtfl.match("martig", 1);
+            if (i == 42) {
+                System.out.println("NBM = " + rtfl.getMatches().size());
+//                System.out.println("GCP= " + rtfl.gcP +  " avg=" + (rtfl.tC / rtfl.gcP));
+            }
+        }
+
+        long before = System.currentTimeMillis();
+        for (int i = 0; i < 1000; i++) {
+            RadixTreeFuzzyLookup rtfl = new RadixTreeFuzzyLookup(rt);
+            rtfl.match("martig", 1);
+        }
+        long after = System.currentTimeMillis();
+        
+        System.out.println("" + (after-before));
 
     }
     
