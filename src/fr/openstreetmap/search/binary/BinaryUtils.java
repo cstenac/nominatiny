@@ -7,7 +7,7 @@ import org.apache.commons.lang.mutable.MutableInt;
 
 
 public class BinaryUtils {
-    
+
     /* Returns the length */
     public static int decodeUTF8(byte[] data, char[] chars) {
         int len = 0;
@@ -103,7 +103,7 @@ public class BinaryUtils {
         dst[index] = (char) ((offset >>> 10) + Character.MIN_HIGH_SURROGATE);
         return index + 2;
     }
-    
+
     final public static void encodeLE64(long value, byte[] buffer, int pos) {
         buffer[pos] = (byte) ((int) (value) & 0xFF);
         buffer[pos + 1] = (byte) ((int) (value >> 8) & 0xFF);
@@ -122,7 +122,7 @@ public class BinaryUtils {
         buffer[pos + 2] = (byte) ((value >> 16) & 0xFF);
         buffer[pos + 3] = (byte) ((value >> 24) & 0xFF);
     }
-    
+
     /** Write a little-endian 32-bit integer. */
     final public static void encodeLE16(short value, byte[] buffer, int pos) {
         buffer[pos] = (byte) ((value) & 0xFF);
@@ -135,7 +135,7 @@ public class BinaryUtils {
                 (((int)buffer[offset + 2] & 0xff) << 16) |
                 (((int)buffer[offset + 3] & 0xff) << 24);
     }
-    
+
     final public static short decodeLE16(byte[] buffer, int offset){
         return (short) ((((short)buffer[offset + 0] & 0xff)      ) |
                 (((short)buffer[offset + 1] & 0xff) <<  8));
@@ -171,14 +171,14 @@ public class BinaryUtils {
         return written;
     }
 
-    
+
     public static class VInt {
         public long value;
         public int codeSize;
     }
-    
+
     /** Read a vint from the buffer */
-    public static void readVInt(byte[] buffer, int pos, VInt ret) {
+    public static void readVIntSlow(byte[] buffer, int pos, VInt ret) {
         ret.codeSize = 0;
         int shift = 0;
         long result = 0;
@@ -195,14 +195,53 @@ public class BinaryUtils {
         }
         throw new Error("Malformed Vint");
     }
-    
+
+
+    public static void readVInt(byte[] buffer, int pos, VInt ret) {
+        // Unrolled loop: directly peek at the LSBs, byte par byte.
+        // When we are done finding LSB=1, then we have the final size, and decode all at once.
+        // The unrolled loop is about twice as fast as the rolled loop
+
+        // To avoid ifs, we use the fact that:
+        //    byte b; 
+        //    if (b > 0) return b >> 1 else return ((long)(b+256)) >> 1;
+        // --> equivalent to (b >>> 1) & 0x7f;
+
+        if ((buffer[pos]  & 0x01) == 0) {
+            ret.codeSize = 1;
+            ret.value =((buffer[pos] >>> 1) & 0x7f);
+        } else if ((buffer[pos+1] & 0x01) == 0) {
+            ret.codeSize = 2;
+            ret.value = ((buffer[pos] >>> 1) & 0x7f)
+                    | ((buffer[pos+1] >>> 1) & 0x7f) << 7;
+        } else if ((buffer[pos+2] & 0x01) == 0) {
+            ret.codeSize = 3;
+            ret.value = ((buffer[pos] >>> 1) & 0x7f)
+                    | ((buffer[pos+1] >>> 1) & 0x7f) << 7
+                    | ((buffer[pos+2] >>> 1) & 0x7f) << 14;
+        } else if ((buffer[pos+3] & 0x01) == 0) {
+            ret.codeSize = 4;
+            ret.value = ((buffer[pos] >>> 1) & 0x7f)
+                    | ((buffer[pos+1] >>> 1) & 0x7f) << 7
+                    | ((buffer[pos+2] >>> 1) & 0x7f) << 14
+                    | ((buffer[pos+3] >>> 1) & 0x7f) << 21;
+        } else {
+            ret.codeSize = 5;
+            ret.value = ((buffer[pos] >>> 1) & 0x7f)
+                    | ((buffer[pos+1] >>> 1) & 0x7f) << 7
+                    | ((buffer[pos+2] >>> 1) & 0x7f) << 14
+                    | ((buffer[pos+3] >>> 1) & 0x7f) << 21 
+                    | ((buffer[pos+4] >>> 1) & 0x7f) << 28;
+        }
+    }
+
     /** Read a vint from a byte buffer at a position */
     public static void readVInt(ByteBuffer buffer, long pos, VInt ret) {
-    	byte[] tmpBuf = new byte[10];
-    	buffer.position((int)pos);
-    	buffer.get(tmpBuf, 0, Math.min(10, buffer.remaining()));
-//    	System.out.println("readVInt at" + pos);
-    	readVInt(tmpBuf, 0, ret);
+        byte[] tmpBuf = new byte[10];
+        buffer.position((int)pos);
+        buffer.get(tmpBuf, 0, Math.min(10, buffer.remaining()));
+        //    	System.out.println("readVInt at" + pos);
+        readVInt(tmpBuf, 0, ret);
     }
 
     /** Read a vint from the buffer */
@@ -220,7 +259,7 @@ public class BinaryUtils {
         }
         throw new Error("Malformed Vint");
     }
-    
+
     public static String readUTF8LenAndString(byte[] buffer, int pos, MutableInt newPos) throws IOException {
         VInt v = new VInt();
         readVInt(buffer, pos, v);

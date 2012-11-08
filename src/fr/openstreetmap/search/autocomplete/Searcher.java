@@ -15,7 +15,7 @@ public interface Searcher {
 	}
 
 	public static class Entry implements Comparable<Entry>{
-		Entry(long offset, int distance, long score) {
+		public Entry(long offset, int distance, long score) {
 			this.offset = offset;
 			this.distance = distance;
 			this.score = score;
