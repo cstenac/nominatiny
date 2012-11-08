@@ -10,6 +10,20 @@ import fr.openstreetmap.search.binary.LongList;
  * This class is not thread safe, it contains some context.
  */
 public class RadixTreeFuzzyLookup {
+    private List<LongList> llStack = new ArrayList<LongList>();
+    
+    private LongList acquireLL() {
+        if (llStack.size() == 0) {
+            return new LongList();
+        } else {
+            return llStack.remove(llStack.size() - 1);
+        }
+    }
+    private void releaseLL(LongList ll) {
+        ll.clear();
+        llStack.add(ll);
+    }
+    
     private RadixTree tree;
     private int maxDistance;
     private List<ApproximateMatch> matches = new ArrayList<RadixTreeFuzzyLookup.ApproximateMatch>();
@@ -119,7 +133,7 @@ public class RadixTreeFuzzyLookup {
             //            System.out.println(indent(strPos) + " matchInRadix EOR children at " + childrenOfRadixListPos);
             // End of the radix, resume normal work
             if (childrenOfRadixListPos != Long.MAX_VALUE) {
-                LongList children = new LongList();
+                LongList children = acquireLL();
                 getChildrenPositions(childrenOfRadixListPos, children);
                 //                System.out.println(indent(strPos) + " matchInRadix EOR: " + children.size()  + " children matchRec at=" + currentDistance);
 
@@ -129,7 +143,7 @@ public class RadixTreeFuzzyLookup {
                     matchRec(children.get(ch), strPos, str, currentDistance, corrected, (char)0, (char)0);
                 }
                 //                System.out.println(indent(strPos) + " matchInRadix EOR: done children");
-
+                releaseLL(children);
             }
             return;
         }
@@ -199,7 +213,7 @@ public class RadixTreeFuzzyLookup {
                     registerMatch(currentNodePos + 3, currentDistance  , corrected);
                     corrected.remove(corrected.size() - 1);
                 } else {
-                    LongList children = new LongList();
+                    LongList children = acquireLL();
                     getChildrenPositions(posAfterValue, children);
 
                     /* Recurse without increasing the distance further */
@@ -208,7 +222,7 @@ public class RadixTreeFuzzyLookup {
                         matchRec(children.get(ch), strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
                     }
                     corrected.remove(corrected.size() - 1);
-
+                    releaseLL(children);
                 }
 
                 //              currentDistance++;
@@ -229,7 +243,7 @@ public class RadixTreeFuzzyLookup {
                 corrected.remove(corrected.size() - 1);
             }
 
-            LongList children = new LongList();
+            LongList children = acquireLL();
             getChildrenPositions(posAfterValue, children);
 
             corrected.add(c);
@@ -237,6 +251,8 @@ public class RadixTreeFuzzyLookup {
                 matchRec(children.get(ch), strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
             }
             corrected.remove(corrected.size() - 1);
+            
+            releaseLL(children);
 
         } else {
             /* There is a value here, so if we are at end of the string, but don't match, we still record a match at distance + 1 */
@@ -253,7 +269,7 @@ public class RadixTreeFuzzyLookup {
                 // Try insertion: advance the string by 1, at same position in tree
                 matchRec(currentNodePos, strPos + 1, str, currentDistance + 1, corrected, (char)0,  (char)0);
 
-                LongList children = new LongList();
+                LongList children = acquireLL();
                 getChildrenPositions(posAfterValue, children);
 
 //                System.out.println(indent(strPos ) + " NIVO NO-match DELETE ");//+ " trying to match=" + str.charAt(strPos));
@@ -286,6 +302,7 @@ public class RadixTreeFuzzyLookup {
                 }
 //                System.out.println(indent(strPos ) + " NIVO NO-match DONE");//+ " trying to match=" + str.charAt(strPos));
 
+                releaseLL(children);
             }
 
         }
@@ -350,7 +367,7 @@ public class RadixTreeFuzzyLookup {
 
 
         if (str.length() > strPos && c == str.charAt(strPos)) {
-            LongList children = new LongList();
+            LongList children = acquireLL();
             getChildrenPositions(currentNodePos + 3, children);
             //           System.out.println(indent(strPos) + " match");
             corrected.add(c);
@@ -358,6 +375,7 @@ public class RadixTreeFuzzyLookup {
                 matchRec(children.get(ch), strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
             }
             corrected.remove(corrected.size() - 1);
+            releaseLL(children);
         } else {
             if (currentDistance < maxDistance ){
                 if (strPos + 1 <= str.length()) {
@@ -368,7 +386,7 @@ public class RadixTreeFuzzyLookup {
                     corrected.remove(corrected.size() - 1);
                 }
 
-                LongList children = new LongList();
+                LongList children = acquireLL();
                 getChildrenPositions(currentNodePos + 3, children);
                 // Try insertion: ignore the current letter, go to children
 
@@ -400,6 +418,8 @@ public class RadixTreeFuzzyLookup {
                     //               System.out.println(indent(strPos) + " DONE trying permutation on " + currentDistance + " cK=" + curKey(corrected) + " permut=" + c + " and " + str.charAt(strPos));
 
                 }
+                
+                releaseLL(children);
             }
         }
     }
@@ -442,22 +462,14 @@ public class RadixTreeFuzzyLookup {
 
         byte nodeType = tree.buffer[(int)currentNodePos];
 
-        if (nodeType == RadixTreeWriter.NODE_INTERNAL_NOVALUE_ONECHAR) {
-            matchRecNINVO(currentNodePos, strPos, str, currentDistance,
-                    corrected, substitutionFoundChar, substitutionExpectedChar);
-
-        } else if (nodeType == RadixTreeWriter.NODE_INTERNAL_NOVALUE_RADIX) {
-            matchRecNINVR(currentNodePos, strPos, str, currentDistance,
-                    corrected, substitutionFoundChar, substitutionExpectedChar);
-
-        } else if (nodeType == RadixTreeWriter.NODE_INTERNAL_VALUE_ONECHAR) {
+        if (nodeType == RadixTreeWriter.NODE_INTERNAL_VALUE_ONECHAR) {
             matchRecNIVO(currentNodePos, strPos, str, currentDistance,
                     corrected, substitutionFoundChar, substitutionExpectedChar);
-
-        } else if (nodeType == RadixTreeWriter.NODE_INTERNAL_VALUE_RADIX) {
-            matchRecNIVR(currentNodePos, strPos, str, currentDistance,
+        
+        } else if (nodeType == RadixTreeWriter.NODE_INTERNAL_NOVALUE_ONECHAR) {
+            matchRecNINVO(currentNodePos, strPos, str, currentDistance,
                     corrected, substitutionFoundChar, substitutionExpectedChar);
-
+      
         } else if (nodeType == RadixTreeWriter.NODE_FINAL_ONECHAR) {
             char c = (char)BinaryUtils.decodeLE16(tree.buffer, (int)currentNodePos + 1);
 //                        System.out.println(indent(strPos) + " FINAL_ONECHAR " + c);
@@ -471,6 +483,16 @@ public class RadixTreeFuzzyLookup {
             }
             corrected.remove(corrected.size() - 1);
 
+            
+        } else if (nodeType == RadixTreeWriter.NODE_INTERNAL_NOVALUE_RADIX) {
+            matchRecNINVR(currentNodePos, strPos, str, currentDistance,
+                    corrected, substitutionFoundChar, substitutionExpectedChar);
+
+        } else if (nodeType == RadixTreeWriter.NODE_INTERNAL_VALUE_RADIX) {
+            matchRecNIVR(currentNodePos, strPos, str, currentDistance,
+                    corrected, substitutionFoundChar, substitutionExpectedChar);
+
+       
         } else if (nodeType == RadixTreeWriter.NODE_FINAL_RADIX) {
             //            System.out.println(indent(strPos ) + " FINAL_RADIX ");
 
@@ -496,11 +518,12 @@ public class RadixTreeFuzzyLookup {
         } else if (nodeType == RadixTreeWriter.NODE_HEADER) {
             //            System.out.println(indent(strPos) + " HEADER NODE");
             // This node always matches, recurse on children
-            LongList children = new LongList();
+            LongList children = acquireLL();
             getChildrenPositions(currentNodePos + 1, children);
             for (int ch = 0; ch < children.size(); ch++) {
                 matchRec(children.get(ch), strPos + 1, str, currentDistance, corrected, (char)0, (char)0);
             }
+            releaseLL(children);
         } else {
             System.out.println(indent(strPos) + " UNKNONWN TYPE IS " + nodeType);
         }
